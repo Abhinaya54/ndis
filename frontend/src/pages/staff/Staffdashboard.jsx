@@ -2,6 +2,8 @@ import React, { useEffect, useState, useContext } from "react";
 import api from "../../api/api";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
+import { connectSocket, joinStaffRoom, onAssignmentUpdate, onAssignmentStatus, disconnectSocket } from "../../api/socket";
+import { getStaffAssignments } from "../../api/assignments";
 
 /* Back Icon */
 const BackIcon = () => (
@@ -30,6 +32,40 @@ export default function StaffDashboard() {
       }
     }
     if (user?.id) loadDashboard();
+  }, [user?.id]);
+
+  // Real-time assignment syncing
+  useEffect(() => {
+    if (!user?.id) return;
+    const socket = connectSocket();
+    joinStaffRoom(user.id);
+
+    const refreshAssignments = async () => {
+      try {
+        const assignments = await getStaffAssignments(user.id, "current");
+        // If there is an active assignment, sync its times to dashboard
+        if (assignments && assignments.length) {
+          const active = assignments.find(a => a.status === "active") || assignments[0];
+          setDashboard((d) => ({ ...d, startTime: active.startTime, endTime: active.endTime }));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    onAssignmentUpdate(() => {
+      refreshAssignments();
+    });
+    onAssignmentStatus(() => {
+      refreshAssignments();
+    });
+
+    // initial load of assignments
+    refreshAssignments();
+
+    return () => {
+      disconnectSocket();
+    };
   }, [user?.id]);
 
   if (loading)

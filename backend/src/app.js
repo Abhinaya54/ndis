@@ -9,5 +9,6 @@ app.use(express.json());
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/staff", require("./routes/staff.routes"));
 app.use("/api/supervisor", require("./routes/supervisor.routes"));
+app.use("/api/assignments", require("./routes/assignment.routes"));
 
 module.exports = app;

@@ -1,11 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import api from '../../api/api';
+import { AuthContext } from '../../context/AuthContext';
+import { getSupervisorAssignments, createAssignment } from '../../api/assignments';
+import { connectSocket, onAssignmentUpdate, onAssignmentStatus, joinStaffRoom } from '../../api/socket';
 import { Link } from 'react-router-dom';
 
 const Supervisordashboard = () => {
 	const [dashboard, setDashboard] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
+    const { user } = useContext(AuthContext);
+    const [assignments, setAssignments] = useState([]);
+	const [staffList, setStaffList] = useState([]);
+	const [clientsList, setClientsList] = useState([]);
+	const [form, setForm] = useState({ staffId: '', clientId: '', weekStartDate: '', weekEndDate: '', startTime: '', endTime: '' });
+	const [formStatus, setFormStatus] = useState({ loading: false, error: '', success: '' });
 
 	useEffect(() => {
 		const fetchDashboard = async () => {
@@ -20,6 +29,47 @@ const Supervisordashboard = () => {
 		};
 		fetchDashboard();
 	}, []);
+
+	// fetch supervisor assignments (show recent/current week)
+	useEffect(() => {
+		// fetch staff and clients for the Add Shift form
+		const fetchStaffAndClients = async () => {
+			try {
+				const [sRes, cRes] = await Promise.all([
+					api.get('/api/supervisor/staff'),
+					api.get('/api/supervisor/clients')
+				]);
+				setStaffList(sRes.data || []);
+				setClientsList(cRes.data || []);
+			} catch (e) {
+				console.warn('Could not fetch staff/clients for form', e);
+			}
+		};
+		fetchStaffAndClients();
+		const fetchAssignments = async () => {
+			try {
+				const sid = user?.id || dashboard?.supervisorId;
+				if (!sid) return;
+				const res = await getSupervisorAssignments(sid);
+				setAssignments(res || []);
+			} catch (e) {
+				console.error('Failed to load assignments', e);
+			}
+		};
+		fetchAssignments();
+
+		const socket = connectSocket();
+		if (user?.id) joinStaffRoom(user.id);
+		onAssignmentUpdate((a) => {
+			// reload assignments on update
+			fetchAssignments();
+		});
+		onAssignmentStatus((a) => fetchAssignments());
+
+		return () => {
+			// no-op disconnect here to avoid interfering with staff sockets elsewhere
+		};
+	}, [user?.id, dashboard?.supervisorId]);
 
 	if (loading) return <div style={{ color: '#805AD5', textAlign: 'center', marginTop: 40, fontSize: 18 }}>Loading dashboard...</div>;
 	if (error) return <div style={{ color: '#C53030', textAlign: 'center', marginTop: 40, fontSize: 18 }}>{error}</div>;
@@ -97,6 +147,95 @@ const Supervisordashboard = () => {
 					</div>
 				</div>
 			</div>
+
+		{/* Assignments quick view */}
+		{/* Add Shift form (supervisor only) */}
+		<div style={{ margin: '0 0 18px 32px' }}>
+			<div style={{ ...styles.activityBox, padding: 18 }}>
+				<div style={styles.sectionTitle}>Add Weekly Shift</div>
+				{formStatus.error && <div style={{ color: '#C53030', marginBottom: 8 }}>{formStatus.error}</div>}
+				{formStatus.success && <div style={{ color: '#2F7A4E', marginBottom: 8 }}>{formStatus.success}</div>}
+				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+					<select value={form.staffId} onChange={e => setForm({ ...form, staffId: e.target.value })}>
+						<option value="">Select staff</option>
+						{staffList.map(s => (<option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>))}
+					</select>
+					<select value={form.clientId} onChange={e => setForm({ ...form, clientId: e.target.value })}>
+						<option value="">Select client</option>
+						{clientsList.map(c => (<option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>))}
+					</select>
+					<input type="date" value={form.weekStartDate} onChange={e => setForm({ ...form, weekStartDate: e.target.value })} />
+					<input type="date" value={form.weekEndDate} onChange={e => setForm({ ...form, weekEndDate: e.target.value })} />
+					<input type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} />
+					<input type="time" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} />
+				</div>
+				<div style={{ marginTop: 12, textAlign: 'right' }}>
+					<button style={styles.actionBtnBlue} disabled={formStatus.loading} onClick={async () => {
+						setFormStatus({ loading: true, error: '', success: '' });
+						try {
+							if (!form.staffId || !form.clientId || !form.weekStartDate || !form.weekEndDate || !form.startTime || !form.endTime) {
+								throw new Error('Please fill all fields');
+							}
+							const [sh, sm] = form.startTime.split(':').map(Number);
+							const [eh, em] = form.endTime.split(':').map(Number);
+							if (eh < sh || (eh === sh && em <= sm)) throw new Error('End time must be after start time');
+							await createAssignment({
+								staffId: form.staffId,
+								clientId: form.clientId,
+								weekStartDate: form.weekStartDate,
+								weekEndDate: form.weekEndDate,
+								startTime: form.startTime,
+								endTime: form.endTime
+							});
+							setFormStatus({ loading: false, error: '', success: 'Assignment created' });
+							// refresh assignments
+							const sid = user?.id || dashboard?.supervisorId;
+							if (sid) {
+								const res = await getSupervisorAssignments(sid);
+								setAssignments(res || []);
+							}
+							setForm({ staffId: '', clientId: '', weekStartDate: '', weekEndDate: '', startTime: '', endTime: '' });
+						} catch (err) {
+							console.error(err);
+							setFormStatus({ loading: false, error: err.message || 'Failed to create assignment', success: '' });
+						}
+					}}>
+						Create Assignment
+					</button>
+				</div>
+			</div>
+		</div>
+		<div style={{ margin: '0 0 32px 32px' }}>
+			<div style={{ ...styles.activityBox, padding: 18 }}>
+				<div style={styles.sectionTitle}>Weekly Assignments</div>
+				{assignments.length === 0 ? (
+					<div style={{ color: '#6B6B6B' }}>No assignments yet.</div>
+				) : (
+					<table style={{ width: '100%', borderCollapse: 'collapse' }}>
+						<thead>
+							<tr style={{ textAlign: 'left', borderBottom: '1px solid #F1F1F1' }}>
+								<th style={{ padding: '8px 6px' }}>Client</th>
+								<th style={{ padding: '8px 6px' }}>Staff</th>
+								<th style={{ padding: '8px 6px' }}>Timing</th>
+								<th style={{ padding: '8px 6px' }}>Week</th>
+								<th style={{ padding: '8px 6px' }}>Status</th>
+							</tr>
+						</thead>
+						<tbody>
+							{assignments.map((a) => (
+								<tr key={a._id} style={{ borderBottom: '1px solid #FAFAFA' }}>
+									<td style={{ padding: '10px 6px' }}>{a.clientId?.name || (a.clientId && a.clientId._id) || '—'}</td>
+									<td style={{ padding: '10px 6px' }}>{a.staffId?.name || (a.staffId && a.staffId._id) || '—'}</td>
+									<td style={{ padding: '10px 6px' }}>{a.startTime} — {a.endTime}</td>
+									<td style={{ padding: '10px 6px' }}>{new Date(a.weekStartDate).toLocaleDateString()} ↦ {new Date(a.weekEndDate).toLocaleDateString()}</td>
+									<td style={{ padding: '10px 6px' }}>{a.status}</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				)}
+			</div>
+		</div>
 		</div>
 	);
 };

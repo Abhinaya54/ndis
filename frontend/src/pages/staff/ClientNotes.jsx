@@ -1,48 +1,12 @@
 import React, { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import api from "../../api/api";
+import { getStaffAssignments } from "../../api/assignments";
+import { connectSocket, joinStaffRoom, onAssignmentUpdate, onAssignmentStatus, disconnectSocket } from "../../api/socket";
 import { AuthContext } from "../../context/AuthContext";
 
 
-// Outline icons (Heroicons/Material) for categories
-const CategoryIcons = {
-  Bathing: (
-    <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M7 17a5 5 0 0 1 10 0v1a3 3 0 0 1-3 3H10a3 3 0 0 1-3-3v-1z"/><path d="M12 3v7"/><circle cx="12" cy="3" r="1.5"/></svg>
-  ),
-  Medication: (
-    <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 11V3"/><circle cx="12" cy="7" r="2"/></svg>
-  ),
-  Eating: (
-    <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M4 10h16M9 21V10m6 11V10"/></svg>
-  ),
-  "Emotional State": (
-    <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9 4.03 9 9 9z"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/></svg>
-  ),
-  "Movement/Mobility": (
-    <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-  ),
-  "General Observation": (
-    <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
-  ),
-  Other: (
-    <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>
-  )
-};
-const NOTE_CATEGORIES = [
-  { key: "Bathing", label: "Bathing", desc: "Hygiene and bathing activities", color: "#B8A6D9", bg: "#F8F9ED" },
-  { key: "Medication", label: "Medication", desc: "Medication administration", color: "#B8A6D9", bg: "#F8F9ED" },
-  { key: "Eating", label: "Eating", desc: "Meal and nutrition intake", color: "#B8A6D9", bg: "#F8F9ED" },
-  { key: "Emotional State", label: "Emotional State", desc: "Mood and emotional observations", color: "#B8A6D9", bg: "#F8F9ED" },
-  { key: "Movement/Mobility", label: "Movement/Mobility", desc: "Physical activity and mobility", color: "#B8A6D9", bg: "#F8F9ED" },
-  { key: "General Observation", label: "General Observation", desc: "Other observations", color: "#B8A6D9", bg: "#F8F9ED" },
-  { key: "Other", label: "Other", desc: "Other category not listed above", color: "#B8A6D9", bg: "#F8F9ED" }
-];
-const statusColors = {
-  Approved: "#22C55E",
-  Pending: "#F59E42",
-  Rejected: "#EF4444",
-  Draft: "#64748B"
-};
+// Categories removed from this page — notes are uncategorized here
 
 const ClientNotes = () => {
     const { id: clientId } = useParams();
@@ -57,15 +21,15 @@ const ClientNotes = () => {
     const [error, setError] = React.useState("");
     const recognitionRef = React.useRef(null);
     const isSpeechRecognitionSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-    // State for Previous Notes modal
-    const [showPrevNotes, setShowPrevNotes] = useState(false);
-    const [noteFilter, setNoteFilter] = useState("week"); // 'week', 'month', 'year', 'all'
+    // State for Daily Consolidation modal
+    const [showConsolidateModal, setShowConsolidateModal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [notes, setNotes] = useState([]);
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState("");
-    const [category, setCategory] = useState(() => (location.state && location.state.category) || "General Observation");
+    // categories removed — no local category state
     const [client, setClient] = useState(null);
+      const [currentAssignment, setCurrentAssignment] = useState(null);
 
     useEffect(() => {
       const fetchClient = async () => {
@@ -81,15 +45,51 @@ const ClientNotes = () => {
       };
       const fetchNotes = async () => {
         try {
-          const res = await api.get(`/api/staff/clients/${clientId}/notes?period=${noteFilter}`);
+          const res = await api.get(`/api/staff/clients/${clientId}/notes`);
           setNotes(res.data);
         } catch (err) {
           setError("Failed to load notes");
         }
       };
+      const fetchAssignment = async () => {
+        try {
+          if (!user?.id) return;
+          const assignments = await getStaffAssignments(user.id, "current");
+          if (assignments && assignments.length) {
+            const forClient = assignments.find(a => String(a.clientId._id || a.clientId) === String(clientId));
+            setCurrentAssignment(forClient || null);
+          } else setCurrentAssignment(null);
+        } catch (err) {
+          // ignore silently
+        }
+      };
       fetchClient();
       fetchNotes();
-    }, [clientId, noteFilter]);
+      fetchAssignment();
+    }, [clientId]);
+
+  // Socket: join staff room and listen for assignment updates
+  useEffect(() => {
+    if (!user?.id) return;
+    const socket = connectSocket();
+    joinStaffRoom(user.id);
+
+    const handleUpdate = (assignment) => {
+      // if update is relevant to this client, refresh currentAssignment
+      if (!assignment) return;
+      const cid = assignment.clientId && (assignment.clientId._id || assignment.clientId);
+      if (String(cid) === String(clientId)) {
+        setCurrentAssignment(assignment);
+      }
+    };
+
+    onAssignmentUpdate(handleUpdate);
+    onAssignmentStatus(handleUpdate);
+
+    return () => {
+      disconnectSocket();
+    };
+  }, [user?.id, clientId]);
 
     const handleEdit = (note) => {
       setEditingId(note._id);
@@ -148,34 +148,41 @@ const ClientNotes = () => {
         recognitionRef.current = null;
       }
       setRecording(false);
-      // Ensure category is never empty
-      const safeCategory = category && category.trim() !== "" ? category : "General Observation";
-      // Navigate to review page after stopping
+      // Navigate to review page after stopping (no category passed)
       navigate(`/staff/clients/${clientId}/review-note`, {
         state: {
           transcript,
           client: location.state?.client,
           user,
           noteType: "voice",
-          allowEdit: false,
-          category: safeCategory
+          allowEdit: false
         }
       });
     };
 
     const handleSaveAndReview = () => {
       if (recording) handleStopRecording();
-      const safeCategory = category && category.trim() !== "" ? category : "General Observation";
       navigate(`/staff/clients/${clientId}/review-note`, {
         state: {
           transcript: editText,
           client: location.state?.client,
           user,
           noteType: "voice",
-          allowEdit: false,
-          category: safeCategory
+          allowEdit: false
         }
       });
+    };
+
+    const generateDailyConsolidation = () => {
+      const today = new Date();
+      const todayStr = today.toDateString();
+      const todayNotes = notes.filter(note => {
+        const noteDate = new Date(note.createdAt);
+        return noteDate.toDateString() === todayStr;
+      });
+      if (todayNotes.length === 0) return "No notes for today.";
+
+      return todayNotes.map(note => note.content).join('\n\n');
     };
 
     if (loading) return <div style={styles.loading}>Loading...</div>;
@@ -183,9 +190,6 @@ const ClientNotes = () => {
     if (error && !error.includes('403')) return <div style={styles.error}>{error}</div>;
     if (!client) return <div style={styles.error}>No client found.</div>;
 
-
-    // Notes are now filtered by backend, so just use notes as-is
-    const filteredNotes = notes;
 
     return (
       <div style={styles.page}>
@@ -216,34 +220,7 @@ const ClientNotes = () => {
             </div>
           </div>
         </div>
-        {/* Priority Card (renamed to Category) */}
-        <div style={styles.card}>
-          <div style={styles.sectionTitle}>Category</div>
-          <div style={styles.sectionDesc}>Select the type of observation</div>
-          <div style={styles.categoryGrid}>
-            {NOTE_CATEGORIES.map(cat => (
-              <div
-                key={cat.key}
-                onClick={() => setCategory(cat.key)}
-                style={{
-                  ...styles.categoryCard,
-                  border: category === cat.key ? `2.5px solid #B8A6D9` : "1.5px solid #E0E0E0",
-                  background: category === cat.key ? "#F8F9ED" : "#fff",
-                  boxShadow: category === cat.key ? "0 2px 8px #E0E7EF" : "none"
-                }}
-                tabIndex={0}
-                aria-label={cat.label}
-              >
-                <span style={styles.categoryIcon}>{CategoryIcons[cat.key]}</span>
-                <span style={styles.categoryLabel}>{cat.label}</span>
-                <span style={styles.categoryDesc}>{cat.desc}</span>
-                {category === cat.key && (
-                  <span style={styles.selectedMark}>Selected</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Categories removed from UI */}
         {/* Record Observation Card */}
         <div style={styles.card}>
           <div style={styles.sectionTitle}>Record Observation</div>
@@ -264,112 +241,104 @@ const ClientNotes = () => {
               <span>Write Note</span>
             </button>
             <button
-              onClick={() => setShowPrevNotes(true)}
-              style={{ ...styles.actionBtn, background: "#fff", color: "#805AD5", border: "1.5px solid #805AD5" }}
+              onClick={() => setShowConsolidateModal(true)}
+              style={{ ...styles.actionBtn, background: "#F8F9ED", color: "#805AD5", border: "1.5px solid #805AD5" }}
             >
-              <svg width="22" height="22" fill="none" stroke="#805AD5" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>
-              <span>Previous Notes</span>
+              <svg width="22" height="22" fill="none" stroke="#805AD5" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
+              <span>Consolidate Daily</span>
             </button>
           </div>
-          {/* Previous Notes Modal */}
-          {showPrevNotes && (
+          {/* Daily Consolidation Modal */}
+          {/* Daily Consolidation Modal */}
+          {showConsolidateModal && (
             <div style={styles.modalOverlay}>
               <div style={styles.modalContent}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={styles.sectionTitle}>Previous Notes</div>
-                  <button onClick={() => setShowPrevNotes(false)} style={styles.closeModalBtn} aria-label="Close">
+                  <div style={styles.sectionTitle}>Daily Notes Consolidation</div>
+                  <button onClick={() => setShowConsolidateModal(false)} style={styles.closeModalBtn} aria-label="Close">
                     <svg width="22" height="22" fill="none" stroke="#805AD5" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
                 </div>
-                <div style={styles.filterRow}>
-                  <button
-                    style={{ ...styles.filterBtn, background: noteFilter === "week" ? "#B8A6D9" : "#fff", color: noteFilter === "week" ? "#fff" : "#2E2E2E" }}
-                    onClick={() => setNoteFilter("week")}
-                  >This Week</button>
-                  <button
-                    style={{ ...styles.filterBtn, background: noteFilter === "month" ? "#B8A6D9" : "#fff", color: noteFilter === "month" ? "#fff" : "#2E2E2E" }}
-                    onClick={() => setNoteFilter("month")}
-                  >This Month</button>
-                  <button
-                    style={{ ...styles.filterBtn, background: noteFilter === "year" ? "#B8A6D9" : "#fff", color: noteFilter === "year" ? "#fff" : "#2E2E2E" }}
-                    onClick={() => setNoteFilter("year")}
-                  >This Year</button>
-                  <button
-                    style={{ ...styles.filterBtn, background: noteFilter === "all" ? "#B8A6D9" : "#fff", color: noteFilter === "all" ? "#fff" : "#2E2E2E" }}
-                    onClick={() => setNoteFilter("all")}
-                  >All</button>
+                <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#f8f9ed', padding: 16, borderRadius: 8, border: '1px solid #b8a6d9' }}>
+                  {generateDailyConsolidation()}
                 </div>
-                {filteredNotes.length === 0 ? (
-                  <div style={styles.sectionDesc}>No notes yet.</div>
-                ) : (
-                  <ul style={{ listStyle: "none", padding: 0, maxHeight: 320, overflowY: 'auto' }}>
-                    {filteredNotes.map(note => (
-                      <li key={note._id} style={styles.noteCard}>
-                        <div style={styles.noteHeader}>
-                          <span style={styles.noteCategory}>
-                            {CategoryIcons[note.category]}
-                            {note.category}
-                          </span>
-                          <span style={{ ...styles.statusPill, background: statusColors[note.status] }}>{note.status}</span>
-                        </div>
-                        <div style={styles.noteContent}>
-                          {note.content}
-                          {note.draft && <span style={styles.draftMark}>(Draft)</span>}
-                          {/* Show edit button if note is not approved and belongs to current user */}
-                          {note.staffId === user.id && note.status !== "Approved" && note._id && (
-                            <button
-                              style={styles.editBtn}
-                              aria-label="Edit note"
-                              onClick={() => {
-                                setShowPrevNotes(false);
-                                if (note._id) {
-                                  navigate(`/staff/clients/${clientId}/review-note/${note._id}`);
-                                } else {
-                                  console.warn('Attempted to edit a note with undefined _id:', note);
-                                }
-                              }}
-                            >
-                              <svg width="16" height="16" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 1 1 2.828 2.828L11.828 15.828a2 2 0 0 1-2.828 0L9 13z"/></svg> Edit
-                            </button>
-                          )}
-                        </div>
-                        <div style={styles.noteMeta}>
-                          {new Date(note.createdAt).toLocaleString()} | Note ID: {note._id}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
+                  <button onClick={() => setShowConsolidateModal(false)} style={styles.cancelBtn}>Close</button>
+                </div>
               </div>
             </div>
           )}
-          {/* Voice Note Modal */}
+          {/* Voice Note Modal (styled template matching staff dashboard) */}
           {showVoiceModal && (
-            <div style={styles.modalOverlay}>
-              <div style={styles.modalContent}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={{ fontWeight: 600, color: '#805AD5', fontSize: 18 }}>Voice Note</div>
-                  <button onClick={() => setShowVoiceModal(false)} style={styles.closeModalBtn} aria-label="Close">
-                    &times;
-                  </button>
-                </div>
-                {/* Voice Note Controls and Live Transcription */}
-                <div style={{ marginBottom: 18 }}>
-                  <div style={{ color: '#6B6B6B', fontSize: 15, marginBottom: 8 }}>Live Transcription:</div>
-                  <div style={{ minHeight: 48, background: '#F8F9ED', borderRadius: 8, padding: '10px 12px', fontSize: 16, color: '#2E2E2E', marginBottom: 12 }}>
-                    {recording ? transcript || 'Start speaking...' : 'Click Start to begin.'}
+            <div style={{ ...styles.modalOverlay, background: 'rgba(8,6,23,0.6)' }}>
+              <div style={{
+                maxWidth: 760,
+                width: '95%',
+                borderRadius: 16,
+                padding: 20,
+                boxShadow: '0 20px 60px rgba(8,6,23,0.45)',
+                background: 'linear-gradient(180deg,#fff,#F8F9ED)',
+                border: '1px solid rgba(128,90,213,0.12)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 12, background: '#805AD5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 22 }}>
+                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 1v10" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><rect x="9" y="4" width="6" height="8" rx="3" stroke="white" strokeWidth="1.2"/></svg>
                   </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: '#2F2F2F' }}>Voice Note</div>
+                    <div style={{ color: '#6B6B6B', marginTop: 2 }}>Record a quick voice observation — transcription will appear below.</div>
+                  </div>
+                  <button onClick={() => setShowVoiceModal(false)} style={{ ...styles.closeModalBtn, background: 'transparent', color: '#6B6B6B', border: 'none' }} aria-label="Close">✕</button>
                 </div>
-                <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
-                  {!recording && (
-                    <button style={{ background: '#805AD5', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={handleStartRecording}>Start</button>
-                  )}
-                  {recording && (
-                    <button style={{ background: '#D53F8C', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={handleStopRecording}>Stop</button>
-                  )}
-                  {!recording && transcript && (
-                    <button style={{ background: '#2563EB', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={handleStartRecording}>Resume</button>
-                  )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 18, alignItems: 'start' }}>
+                  <div>
+                    <div style={{ fontSize: 14, color: '#6B6B6B', marginBottom: 8 }}>Live Transcription</div>
+                    <div style={{ minHeight: 160, borderRadius: 12, padding: 16, background: '#fff', border: '1px solid rgba(128,90,213,0.06)', boxShadow: 'inset 0 1px 6px rgba(11,7,36,0.03)', color: '#2E2E2E', fontSize: 15 }}>
+                      {recording ? (transcript || 'Listening… speak now') : (transcript ? transcript : 'No transcript yet. Click Start to begin recording.')}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 14 }}>
+                      {!recording && (
+                        <button onClick={handleStartRecording} style={{
+                          width: 72, height: 72, borderRadius: 36, border: 'none', cursor: 'pointer',
+                          background: 'linear-gradient(135deg,#805AD5,#B8A6D9)', color: '#fff', fontWeight: 700, fontSize: 16, boxShadow: '0 8px 20px rgba(128,90,213,0.2)'
+                        }}>Start</button>
+                      )}
+                      {recording && (
+                        <button onClick={handleStopRecording} style={{
+                          width: 72, height: 72, borderRadius: 36, border: 'none', cursor: 'pointer',
+                          background: 'linear-gradient(135deg,#D53F8C,#F973AA)', color: '#fff', fontWeight: 700, fontSize: 16, boxShadow: '0 8px 20px rgba(213,63,140,0.18)'
+                        }}>Stop</button>
+                      )}
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ fontSize: 13, color: '#6B6B6B' }}>Controls</div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          {!recording && transcript && (
+                            <button onClick={handleStartRecording} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(128,90,213,0.12)', background: '#fff', cursor: 'pointer' }}>Resume</button>
+                          )}
+                          <button onClick={handleSaveAndReview} style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: '#805AD5', color: '#fff', cursor: 'pointer' }}>Save & Review</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ borderRadius: 12, padding: 12, background: 'linear-gradient(180deg,#FBF8FF,#F8F9ED)', border: '1px solid rgba(128,90,213,0.06)' }}>
+                    <div style={{ fontSize: 13, color: '#6B6B6B', marginBottom: 10 }}>Recording Status</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: 6, background: recording ? '#EF4444' : '#94A3B8', boxShadow: recording ? '0 0 8px rgba(239,68,68,0.45)' : 'none' }} />
+                      <div style={{ fontSize: 15, color: '#2E2E2E' }}>{recording ? 'Recording' : 'Idle'}</div>
+                    </div>
+                    <div style={{ height: 12, marginTop: 16, background: '#fff', borderRadius: 6, border: '1px solid rgba(11,7,36,0.04)' }}>
+                      <div style={{ width: recording ? '60%' : '0%', height: '100%', background: 'linear-gradient(90deg,#805AD5,#B8A6D9)', borderRadius: 6, transition: 'width 0.3s' }} />
+                    </div>
+                    <div style={{ fontSize: 13, color: '#6B6B6B', marginTop: 12 }}>Tips</div>
+                    <ul style={{ marginTop: 8, paddingLeft: 18, color: '#6B6B6B' }}>
+                      <li>Speak clearly near your microphone.</li>
+                      <li>Keep recordings under 5 minutes for best results.</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
@@ -382,7 +351,7 @@ const ClientNotes = () => {
               // Refresh notes after saving
               const fetchNotes = async () => {
                 try {
-                  const res = await api.get(`/api/staff/clients/${clientId}/notes?period=${noteFilter}`);
+                  const res = await api.get(`/api/staff/clients/${clientId}/notes`);
                   setNotes(res.data);
                 } catch (err) {
                   setError("Failed to load notes");
@@ -391,7 +360,6 @@ const ClientNotes = () => {
               fetchNotes();
             }}
             clientId={clientId}
-            category={category}
             api={api}
             styles={styles}
           />
@@ -401,7 +369,7 @@ const ClientNotes = () => {
 }
 
 // --- Write Note Modal Component (top-level) ---
-function WriteNoteModal({ open, onClose, onSaved, clientId, category, api, styles }) {
+function WriteNoteModal({ open, onClose, onSaved, clientId, api, styles }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -411,7 +379,6 @@ function WriteNoteModal({ open, onClose, onSaved, clientId, category, api, style
     try {
       await api.post(`/api/staff/clients/${clientId}/notes`, {
         clientId,
-        category: category || "General Observation",
         content: note,
         noteType: "text",
         status: "Pending"
@@ -469,13 +436,10 @@ function WriteNoteModal({ open, onClose, onSaved, clientId, category, api, style
         <div style={{ marginBottom: 18, marginTop: 8 }}>
           <h2 style={{ fontWeight: 700, fontSize: 28, color: "#2E2E2E", margin: 0, letterSpacing: 0.2 }}>Write Note</h2>
         </div>
-        <div style={{ fontWeight: 500, color: '#805AD5', fontSize: 16, marginBottom: 10 }}>
-          Category: <span style={{ color: '#2E2E2E', fontWeight: 600 }}>{category || "General Observation"}</span>
-        </div>
         <textarea
           value={note}
           onChange={e => setNote(e.target.value)}
-          placeholder={`Type your observation for ${category || "General Observation"}...`}
+          placeholder={`Type your observation...`}
           style={{
             width: '100%',
             minHeight: 120,
@@ -730,75 +694,6 @@ const styles = {
     gap: 8,
     boxShadow: "0 2px 8px #E0E7EF"
   },
-  noteCard: {
-    background: "#fff",
-    borderRadius: 12,
-    padding: 18,
-    marginBottom: 18,
-    boxShadow: "0 1px 4px #E0E7EF"
-  },
-  noteHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 6
-  },
-  noteCategory: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    color: "#B8A6D9",
-    fontWeight: 500,
-    fontSize: 15
-  },
-  statusPill: {
-    color: "#fff",
-    borderRadius: 8,
-    padding: "2px 10px",
-    fontWeight: 500,
-    fontSize: 13
-  },
-  noteContent: {
-    color: "#2E2E2E",
-    fontSize: 15,
-    marginBottom: 6
-  },
-  noteMeta: {
-    fontSize: 12,
-    color: "#6B6B6B"
-  },
-  editBtn: {
-    marginLeft: 12,
-    padding: "4px 10px",
-    borderRadius: 8,
-    background: "#B8A6D9",
-    color: "#fff",
-    fontWeight: 500,
-    fontSize: 13,
-    border: "none",
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4
-  },
-  draftMark: {
-    color: '#B8A6D9',
-    marginLeft: 8
-  },
-  editTextarea: {
-    width: "100%",
-    borderRadius: 8,
-    border: "1.5px solid #B8A6D9",
-    padding: 10,
-    fontSize: 15,
-    marginTop: 8,
-    background: "#F8F9ED"
-  },
-  editActions: {
-    display: "flex",
-    gap: 10,
-    marginTop: 8
-  },
   saveBtn: {
       background: "#805AD5",
       color: "#fff",
@@ -831,27 +726,39 @@ const styles = {
     marginTop: 40,
     fontSize: 18
   },
-  filterRow: {
-    display: "flex",
-    gap: 10,
-    marginBottom: 18
-  },
-  filterBtn: {
-      border: "1.5px solid #805AD5",
-      borderRadius: 8,
-      padding: "6px 18px",
-      fontWeight: 500,
-      fontSize: 14,
-      background: "#fff",
-      color: "#805AD5",
-      cursor: "pointer",
-      transition: "all 0.15s"
-    },
   error: {
     color: "#C53030",
     textAlign: "center",
     marginTop: 40,
     fontSize: 18
+  },
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(0,0,0,0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000
+  },
+  modalContent: {
+    background: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    maxWidth: 600,
+    width: "90%",
+    maxHeight: "80vh",
+    overflowY: "auto",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.3)"
+  },
+  closeModalBtn: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: 0
   }
 };
 export default ClientNotes;
