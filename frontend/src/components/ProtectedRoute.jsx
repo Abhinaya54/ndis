@@ -20,7 +20,7 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/staff/dashboard" replace />;
   }
   if (user.role === "supervisor" && location.pathname.startsWith("/staff")) {
-    return <Navigate to="/supervisor" replace />;
+    return <Navigate to="/supervisor/dashboard" replace />;
   }
 
   return children;

@@ -1,764 +1,724 @@
-import React, { useEffect, useState, useContext } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
-import api from "../../api/api";
-import { getStaffAssignments } from "../../api/assignments";
-import { connectSocket, joinStaffRoom, onAssignmentUpdate, onAssignmentStatus, disconnectSocket } from "../../api/socket";
-import { AuthContext } from "../../context/AuthContext";
+import { useEffect, useState, useContext, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mic, PenLine, ClipboardList, FileText, Lock, Unlock, Eye, Calendar, Upload, X, Paperclip, Image, File, Send, Check, Car, CalendarPlus, AlertTriangle } from 'lucide-react';
+import api from '../../api/api';
+import { AuthContext } from '../../context/AuthContext';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import { getAssignmentDateStatus, formatDateForDisplay } from '../../utils/shiftStatus';
+import styles from './ClientNotes.module.css';
 
+export default function ClientNotes() {
+  const { clientId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+  const [notes, setNotes] = useState([]);
+  const [client, setClient] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showFileUpload, setShowFileUpload] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [lockingSending, setLockingSending] = useState(false);
+  const fileInputRef = useRef(null);
+  const [assignment, setAssignment] = useState(null);
+  const [shiftStatus, setShiftStatus] = useState(null);
+  const [startOdometer, setStartOdometer] = useState('');
+  const [endOdometer, setEndOdometer] = useState('');
+  const [savingOdometer, setSavingOdometer] = useState(false);
+  const [odometerSaved, setOdometerSaved] = useState(false);
 
-// Categories removed from this page — notes are uncategorized here
+  const fetchData = useCallback(async (showLoading = true) => {
+    if (!clientId || !user?.id) return;
 
-const ClientNotes = () => {
-    const { id: clientId } = useParams();
-    const navigate = useNavigate();
-    const location = useLocation();
-    const { user } = useContext(AuthContext);
-    const [showVoiceModal, setShowVoiceModal] = React.useState(false);
-    const [showWriteModal, setShowWriteModal] = useState(false);
-    const [recording, setRecording] = React.useState(false);
-    const [transcript, setTranscript] = React.useState("");
-    const [editText, setEditText] = React.useState("");
-    const [error, setError] = React.useState("");
-    const recognitionRef = React.useRef(null);
-    const isSpeechRecognitionSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-    // State for Daily Consolidation modal
-    const [showConsolidateModal, setShowConsolidateModal] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [notes, setNotes] = useState([]);
-    const [editingId, setEditingId] = useState(null);
-    const [editContent, setEditContent] = useState("");
-    // categories removed — no local category state
-    const [client, setClient] = useState(null);
-      const [currentAssignment, setCurrentAssignment] = useState(null);
+    if (showLoading) setLoading(true);
+    try {
+      const notesRes = await api.get(`/api/staff/clients/${clientId}/notes?t=${Date.now()}`);
+      const notesData = notesRes.data?.data || notesRes.data || [];
+      setNotes(notesData);
 
-    useEffect(() => {
-      const fetchClient = async () => {
-        try {
-          setLoading(true);
-          const res = await api.get(`/api/staff/clients/${clientId}`);
-          setClient(res.data);
-          setLoading(false);
-        } catch (err) {
-          setError("Failed to load client info");
-          setLoading(false);
+      if (notesData.length > 0 && notesData[0].clientId) {
+        setClient(notesData[0].clientId);
+      } else {
+        const clientsRes = await api.get(`/api/staff/clients`);
+        const clientsList = clientsRes.data?.data || clientsRes.data || [];
+        const foundClient = clientsList.find(c => c._id === clientId);
+        if (foundClient) {
+          setClient(foundClient);
         }
-      };
-      const fetchNotes = async () => {
-        try {
-          const res = await api.get(`/api/staff/clients/${clientId}/notes`);
-          setNotes(res.data);
-        } catch (err) {
-          setError("Failed to load notes");
-        }
-      };
-      const fetchAssignment = async () => {
-        try {
-          if (!user?.id) return;
-          const assignments = await getStaffAssignments(user.id, "current");
-          if (assignments && assignments.length) {
-            const forClient = assignments.find(a => String(a.clientId._id || a.clientId) === String(clientId));
-            setCurrentAssignment(forClient || null);
-          } else setCurrentAssignment(null);
-        } catch (err) {
-          // ignore silently
-        }
-      };
-      fetchClient();
-      fetchNotes();
-      fetchAssignment();
-    }, [clientId]);
-
-  // Socket: join staff room and listen for assignment updates
-  useEffect(() => {
-    if (!user?.id) return;
-    const socket = connectSocket();
-    joinStaffRoom(user.id);
-
-    const handleUpdate = (assignment) => {
-      // if update is relevant to this client, refresh currentAssignment
-      if (!assignment) return;
-      const cid = assignment.clientId && (assignment.clientId._id || assignment.clientId);
-      if (String(cid) === String(clientId)) {
-        setCurrentAssignment(assignment);
       }
-    };
 
-    onAssignmentUpdate(handleUpdate);
-    onAssignmentStatus(handleUpdate);
-
-    return () => {
-      disconnectSocket();
-    };
-  }, [user?.id, clientId]);
-
-    const handleEdit = (note) => {
-      setEditingId(note._id);
-      setEditContent(note.content);
-    };
-
-    const handleEditSave = async () => {
       try {
-        await api.put(`/api/staff/notes/${editingId}`, { content: editContent });
-        setNotes(notes.map(n => n._id === editingId ? { ...n, content: editContent, draft: false } : n));
-        setEditingId(null);
-        setEditContent("");
-      } catch (err) {
-        setError("Failed to update note");
-      }
-    };
+        const assignmentRes = await api.get(`/api/staff/clients/${clientId}/assignment`);
+        const assignmentData = assignmentRes.data?.data || assignmentRes.data;
+        setAssignment(assignmentData);
 
-    const handleStartRecording = () => {
-      if (!isSpeechRecognitionSupported) return;
-      setTranscript("");
-      setEditText("");
-      setRecording(true);
-      setError("");
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
-      recognition.onresult = (event) => {
-        let interim = "";
-        let final = "";
-        for (let i = 0; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
+        if (assignmentData) {
+          const status = getAssignmentDateStatus(assignmentData.startDate, assignmentData.shift);
+          setShiftStatus(status);
+
+          if (assignmentData.startOdometer !== null && assignmentData.startOdometer !== undefined) {
+            setStartOdometer(String(assignmentData.startOdometer));
+          }
+          if (assignmentData.endOdometer !== null && assignmentData.endOdometer !== undefined) {
+            setEndOdometer(String(assignmentData.endOdometer));
+          }
+          if (assignmentData.startOdometer !== null || assignmentData.endOdometer !== null) {
+            setOdometerSaved(true);
           }
         }
-        setTranscript(final + interim);
-        setEditText(final + interim);
-      };
-      recognition.onerror = (event) => {
-        setError('Speech recognition error: ' + event.error);
-        setRecording(false);
-      };
-      recognition.onend = () => {
-        setRecording(false);
-      };
-      recognitionRef.current = recognition;
-      recognition.start();
-    };
-
-    const handleStopRecording = () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-        recognitionRef.current = null;
+      } catch (assignmentErr) {
+        console.error('Error fetching assignment:', assignmentErr);
       }
-      setRecording(false);
-      // Navigate to review page after stopping (no category passed)
-      navigate(`/staff/clients/${clientId}/review-note`, {
-        state: {
-          transcript,
-          client: location.state?.client,
-          user,
-          noteType: "voice",
-          allowEdit: false
-        }
-      });
-    };
-
-    const handleSaveAndReview = () => {
-      if (recording) handleStopRecording();
-      navigate(`/staff/clients/${clientId}/review-note`, {
-        state: {
-          transcript: editText,
-          client: location.state?.client,
-          user,
-          noteType: "voice",
-          allowEdit: false
-        }
-      });
-    };
-
-    const generateDailyConsolidation = () => {
-      const today = new Date();
-      const todayStr = today.toDateString();
-      const todayNotes = notes.filter(note => {
-        const noteDate = new Date(note.createdAt);
-        return noteDate.toDateString() === todayStr;
-      });
-      if (todayNotes.length === 0) return "No notes for today.";
-
-      return todayNotes.map(note => note.content).join('\n\n');
-    };
-
-    if (loading) return <div style={styles.loading}>Loading...</div>;
-    // Only show error if not a 403 supervisor error (which staff should not see)
-    if (error && !error.includes('403')) return <div style={styles.error}>{error}</div>;
-    if (!client) return <div style={styles.error}>No client found.</div>;
-
-
-    return (
-      <div style={styles.page}>
-        {/* Header */}
-        <div style={styles.headerRow}>
-          <button onClick={() => navigate(-1)} style={styles.backBtn} aria-label="Back to Clients">
-            <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
-          <h1 style={styles.pageTitle}>Client Notes</h1>
-        </div>
-        {/* Client Info Card */}
-        <div style={styles.card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginRight: 12, display: 'flex', alignItems: 'center' }} aria-label="Back">
-              {/* Material Icon: arrow_back */}
-              <svg width="28" height="28" fill="none" stroke="#805AD5" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: '#F8F9ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="40" height="40" fill="none" stroke="#805AD5" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-2.5 3.5-4.5 8-4.5s8 2 8 4.5"/></svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ fontWeight: 700, fontSize: 22, color: '#2F2F2F' }}>{client.name}</div>
-              <div style={{ color: '#805AD5', fontSize: 14, marginTop: 2 }}>ID: {client.code || client._id}</div>
-              <div style={{ color: '#805AD5', fontSize: 14, marginTop: 2 }}>Care Level: <span style={{ color: '#2F2F2F' }}>{client.careLevel || '—'}</span></div>
-              <div style={{ color: '#805AD5', fontSize: 14, marginTop: 2 }}>Care Plan: <span style={{ color: '#2F2F2F' }}>{client.carePlan || '—'}</span></div>
-              <div style={{ color: '#805AD5', fontSize: 14, marginTop: 2 }}>Medical Notes: <span style={{ color: '#2F2F2F' }}>{client.medicalNotes || '—'}</span></div>
-              <div style={{ color: '#805AD5', fontSize: 14, marginTop: 2 }}>Priority: <span style={{ color: '#2F2F2F' }}>{client.priority || 'Normal'}</span></div>
-            </div>
-          </div>
-        </div>
-        {/* Categories removed from UI */}
-        {/* Record Observation Card */}
-        <div style={styles.card}>
-          <div style={styles.sectionTitle}>Record Observation</div>
-          <div style={styles.sectionDesc}>Choose how you want to add your note</div>
-          <div style={styles.actionRow}>
-            <button
-              onClick={() => setShowVoiceModal(true)}
-              style={styles.actionBtn}
-            >
-              <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="14" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2"/><path d="M12 19v3"/></svg>
-              <span>Voice Note</span>
-            </button>
-            <button
-              onClick={() => setShowWriteModal(true)}
-              style={{ ...styles.actionBtn, background: "#fff", color: "#2E2E2E", border: "1.5px solid #B8A6D9" }}
-            >
-              <svg width="22" height="22" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>
-              <span>Write Note</span>
-            </button>
-            <button
-              onClick={() => setShowConsolidateModal(true)}
-              style={{ ...styles.actionBtn, background: "#F8F9ED", color: "#805AD5", border: "1.5px solid #805AD5" }}
-            >
-              <svg width="22" height="22" fill="none" stroke="#805AD5" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
-              <span>Consolidate Daily</span>
-            </button>
-          </div>
-          {/* Daily Consolidation Modal */}
-          {/* Daily Consolidation Modal */}
-          {showConsolidateModal && (
-            <div style={styles.modalOverlay}>
-              <div style={styles.modalContent}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={styles.sectionTitle}>Daily Notes Consolidation</div>
-                  <button onClick={() => setShowConsolidateModal(false)} style={styles.closeModalBtn} aria-label="Close">
-                    <svg width="22" height="22" fill="none" stroke="#805AD5" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </button>
-                </div>
-                <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#f8f9ed', padding: 16, borderRadius: 8, border: '1px solid #b8a6d9' }}>
-                  {generateDailyConsolidation()}
-                </div>
-                <div style={{ marginTop: 16, textAlign: 'right' }}>
-                  <button onClick={() => setShowConsolidateModal(false)} style={styles.cancelBtn}>Close</button>
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Voice Note Modal (styled template matching staff dashboard) */}
-          {showVoiceModal && (
-            <div style={{ ...styles.modalOverlay, background: 'rgba(8,6,23,0.6)' }}>
-              <div style={{
-                maxWidth: 760,
-                width: '95%',
-                borderRadius: 16,
-                padding: 20,
-                boxShadow: '0 20px 60px rgba(8,6,23,0.45)',
-                background: 'linear-gradient(180deg,#fff,#F8F9ED)',
-                border: '1px solid rgba(128,90,213,0.12)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 18 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: 12, background: '#805AD5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 22 }}>
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 1v10" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><rect x="9" y="4" width="6" height="8" rx="3" stroke="white" strokeWidth="1.2"/></svg>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: '#2F2F2F' }}>Voice Note</div>
-                    <div style={{ color: '#6B6B6B', marginTop: 2 }}>Record a quick voice observation — transcription will appear below.</div>
-                  </div>
-                  <button onClick={() => setShowVoiceModal(false)} style={{ ...styles.closeModalBtn, background: 'transparent', color: '#6B6B6B', border: 'none' }} aria-label="Close">✕</button>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 18, alignItems: 'start' }}>
-                  <div>
-                    <div style={{ fontSize: 14, color: '#6B6B6B', marginBottom: 8 }}>Live Transcription</div>
-                    <div style={{ minHeight: 160, borderRadius: 12, padding: 16, background: '#fff', border: '1px solid rgba(128,90,213,0.06)', boxShadow: 'inset 0 1px 6px rgba(11,7,36,0.03)', color: '#2E2E2E', fontSize: 15 }}>
-                      {recording ? (transcript || 'Listening… speak now') : (transcript ? transcript : 'No transcript yet. Click Start to begin recording.')}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 14 }}>
-                      {!recording && (
-                        <button onClick={handleStartRecording} style={{
-                          width: 72, height: 72, borderRadius: 36, border: 'none', cursor: 'pointer',
-                          background: 'linear-gradient(135deg,#805AD5,#B8A6D9)', color: '#fff', fontWeight: 700, fontSize: 16, boxShadow: '0 8px 20px rgba(128,90,213,0.2)'
-                        }}>Start</button>
-                      )}
-                      {recording && (
-                        <button onClick={handleStopRecording} style={{
-                          width: 72, height: 72, borderRadius: 36, border: 'none', cursor: 'pointer',
-                          background: 'linear-gradient(135deg,#D53F8C,#F973AA)', color: '#fff', fontWeight: 700, fontSize: 16, boxShadow: '0 8px 20px rgba(213,63,140,0.18)'
-                        }}>Stop</button>
-                      )}
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <div style={{ fontSize: 13, color: '#6B6B6B' }}>Controls</div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          {!recording && transcript && (
-                            <button onClick={handleStartRecording} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(128,90,213,0.12)', background: '#fff', cursor: 'pointer' }}>Resume</button>
-                          )}
-                          <button onClick={handleSaveAndReview} style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: '#805AD5', color: '#fff', cursor: 'pointer' }}>Save & Review</button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ borderRadius: 12, padding: 12, background: 'linear-gradient(180deg,#FBF8FF,#F8F9ED)', border: '1px solid rgba(128,90,213,0.06)' }}>
-                    <div style={{ fontSize: 13, color: '#6B6B6B', marginBottom: 10 }}>Recording Status</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 12, height: 12, borderRadius: 6, background: recording ? '#EF4444' : '#94A3B8', boxShadow: recording ? '0 0 8px rgba(239,68,68,0.45)' : 'none' }} />
-                      <div style={{ fontSize: 15, color: '#2E2E2E' }}>{recording ? 'Recording' : 'Idle'}</div>
-                    </div>
-                    <div style={{ height: 12, marginTop: 16, background: '#fff', borderRadius: 6, border: '1px solid rgba(11,7,36,0.04)' }}>
-                      <div style={{ width: recording ? '60%' : '0%', height: '100%', background: 'linear-gradient(90deg,#805AD5,#B8A6D9)', borderRadius: 6, transition: 'width 0.3s' }} />
-                    </div>
-                    <div style={{ fontSize: 13, color: '#6B6B6B', marginTop: 12 }}>Tips</div>
-                    <ul style={{ marginTop: 8, paddingLeft: 18, color: '#6B6B6B' }}>
-                      <li>Speak clearly near your microphone.</li>
-                      <li>Keep recordings under 5 minutes for best results.</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Write Note Modal */}
-          <WriteNoteModal
-            open={showWriteModal}
-            onClose={() => setShowWriteModal(false)}
-            onSaved={() => {
-              // Refresh notes after saving
-              const fetchNotes = async () => {
-                try {
-                  const res = await api.get(`/api/staff/clients/${clientId}/notes`);
-                  setNotes(res.data);
-                } catch (err) {
-                  setError("Failed to load notes");
-                }
-              };
-              fetchNotes();
-            }}
-            clientId={clientId}
-            api={api}
-            styles={styles}
-          />
-        </div>
-      </div>
-    );
-}
-
-// --- Write Note Modal Component (top-level) ---
-function WriteNoteModal({ open, onClose, onSaved, clientId, api, styles }) {
-  const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const handleSave = async () => {
-    setSaving(true);
-    setError("");
-    try {
-      await api.post(`/api/staff/clients/${clientId}/notes`, {
-        clientId,
-        content: note,
-        noteType: "text",
-        status: "Pending"
-      });
-      setNote("");
-      setSaving(false);
-      onSaved && onSaved();
-      onClose();
     } catch (err) {
-      setError("Failed to save note");
-      setSaving(false);
+      setError(err.response?.data?.message || err.message || "Error loading notes");
+    }
+    if (showLoading) setLoading(false);
+  }, [clientId, user?.id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (assignment) {
+        const status = getAssignmentDateStatus(assignment.startDate, assignment.shift);
+        setShiftStatus(status);
+      }
+    }, 60 * 1000);
+
+    const handleFocus = () => {
+      fetchData(false);
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchData, assignment]);
+
+
+  const handleUnlockNote = async (noteId) => {
+    if (!window.confirm('Unlock this note for editing?')) return;
+
+    try {
+      await api.post(`/api/staff/clients/${clientId}/notes/${noteId}/unlock`);
+      const notesRes = await api.get(`/api/staff/clients/${clientId}/notes?t=${Date.now()}`);
+      setNotes(notesRes.data?.data || notesRes.data || []);
+    } catch (err) {
+      setError('Failed to unlock note');
     }
   };
-  if (!open) return null;
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    setUploadFiles(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index) => {
+    setUploadFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFileUpload = async () => {
+    if (uploadFiles.length === 0) return;
+
+    setUploading(true);
+    setError("");
+
+    try {
+      const formData = new FormData();
+      uploadFiles.forEach(file => {
+        formData.append('files', file);
+      });
+
+      await api.post(`/api/staff/clients/${clientId}/files`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const notesRes = await api.get(`/api/staff/clients/${clientId}/notes?t=${Date.now()}`);
+      setNotes(notesRes.data?.data || notesRes.data || []);
+
+      setShowFileUpload(false);
+      setUploadFiles([]);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload files');
+    }
+    setUploading(false);
+  };
+
+  const handleLockAndSend = async () => {
+    if (!window.confirm('Lock all consolidated notes and send to supervisor? This cannot be undone.')) return;
+
+    setLockingSending(true);
+    setError("");
+    try {
+      await api.post(`/api/staff/clients/${clientId}/notes/lock-and-send`);
+      await fetchData(false);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to lock and send notes');
+    }
+    setLockingSending(false);
+  };
+
+  const handleSaveOdometer = async () => {
+    setSavingOdometer(true);
+    try {
+      const data = {};
+      if (startOdometer) data.startOdometer = parseFloat(startOdometer);
+      if (endOdometer) data.endOdometer = parseFloat(endOdometer);
+      await api.put(`/api/staff/clients/${clientId}/odometer`, data);
+      setOdometerSaved(true);
+      fetchData(false);
+    } catch (err) {
+      setError('Failed to save odometer reading');
+    } finally {
+      setSavingOdometer(false);
+    }
+  };
+
+  const calculatedDistance = startOdometer && endOdometer && parseFloat(endOdometer) > parseFloat(startOdometer)
+    ? (parseFloat(endOdometer) - parseFloat(startOdometer)).toFixed(1)
+    : null;
+
+  const getFileIcon = (mimetype) => {
+    if (mimetype?.startsWith('image/')) return <Image size={16} />;
+    return <File size={16} />;
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  };
+
+  const getDisplayStatus = (note) => {
+    if (note.status === 'Submitted') return 'Submitted';
+    if (note.status === 'Approved' && note.isLocked) return 'Approved';
+    if (note.status === 'Pending' && note.isLocked) return 'Pending';
+    if (note.status === 'Rejected') return 'Rejected';
+    if (!note.isLocked && note.unlockedAt) return 'Unlocked';
+    if (note.status === 'Consolidated') return 'Consolidated';
+    if (note.status === 'Review') return 'In Review';
+    return 'Draft';
+  };
+
+  const getStatusBadgeClass = (displayStatus) => {
+    switch (displayStatus) {
+      case 'Submitted': return styles.submitted;
+      case 'Approved': return styles.approved;
+      case 'Pending': return styles.submitted;
+      case 'Rejected': return styles.rejected;
+      case 'Unlocked': return styles.unlocked;
+      case 'Consolidated': return styles.consolidatedBadge;
+      case 'In Review': return styles.review;
+      default: return styles.draft;
+    }
+  };
+
+  // Shift status helpers
+  const isShiftActive = shiftStatus?.status === 'Current';
+  const canCreateNotes = isShiftActive;
+
+  const getDisabledReason = () => {
+    if (!shiftStatus) return 'Loading shift information...';
+    switch (shiftStatus.status) {
+      case 'Pending':
+        return `Shift starts ${shiftStatus.badge}`;
+      case 'Previous':
+        return `Shift ended ${shiftStatus.badge}`;
+      default:
+        return 'You can only create notes during your active shift';
+    }
+  };
+
+  // Section A: Notes in Review
+  const reviewNotes = notes.filter(note =>
+    note.status === 'Review' && !note.isLocked
+  );
+
+  // Section B: Consolidated Notes (not yet submitted)
+  const consolidatedNotes = notes.filter(note =>
+    note.status === 'Consolidated' && !note.isLocked
+  ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+  // Section C: Submitted/Locked Notes
+  const submittedNotes = notes.filter(note =>
+    note.status === 'Submitted' || note.isLocked
+  );
+
+  const headerRight = (
+    <span style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-muted)' }}>
+      {notes.length} note{notes.length !== 1 ? 's' : ''} recorded
+    </span>
+  );
+
   return (
-    <div style={{
-      ...styles.modalOverlay,
-      background: 'rgba(80, 60, 140, 0.13)',
-      zIndex: 2000
-    }}>
-      <div style={{
-        ...styles.modalContent,
-        maxWidth: 520,
-        minWidth: 340,
-        borderRadius: 22,
-        boxShadow: '0 8px 32px #B8A6D9',
-        padding: 40,
-        border: '1.5px solid #805AD5',
-        background: 'linear-gradient(120deg, #fff 80%, #f8f9ed 100%)',
-        position: 'relative',
-        margin: 0
-      }}>
-        {/* Close (X) icon at top right */}
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          style={{
-            position: 'absolute',
-            top: 18,
-            right: 18,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 6,
-            borderRadius: 8,
-            color: '#805AD5',
-            fontSize: 22,
-            display: 'flex',
-            alignItems: 'center',
-            transition: 'background 0.15s',
-          }}
+    <DashboardLayout
+      title={client?.name ? `${client.name}'s Notes` : 'Client Notes'}
+      subtitle="View and manage client notes"
+      headerRight={headerRight}
+      loading={loading}
+      error={error}
+    >
+      {/* Shift Status Banner */}
+      {shiftStatus && assignment && (
+        <div className={styles.shiftStatusBanner}>
+          <span className={styles.shiftStatusIcon}>
+            {shiftStatus.status === 'Current' ? '🟢' : shiftStatus.status === 'Pending' ? '🟡' : '⚫'}
+          </span>
+          <div className={styles.shiftStatusText}>
+            <div className={styles.shiftDateTimeBadges}>
+              <span className={styles.shiftDateBadge}>
+                <Calendar size={14} />
+                {formatDateForDisplay(assignment.startDate).relative || 'Unknown'}
+              </span>
+              <span className={styles.shiftTimeBadge}>
+                {assignment.shift}
+              </span>
+            </div>
+            <span>{shiftStatus.badge}</span>
+          </div>
+          {!isShiftActive && (
+            <div className={styles.shiftStatusMessage}>
+              Note creation is only available during active shifts
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Travel Tracking Section */}
+      {assignment && (
+        <div className={styles.travelTrackingSection}>
+          <div className={styles.travelHeader}>
+            <Car size={18} />
+            <span>Travel Tracking</span>
+            {odometerSaved && (
+              <span className={styles.odometerSavedBadge}>
+                <Check size={12} /> Saved
+              </span>
+            )}
+          </div>
+          <div className={styles.odometerRow}>
+            <div className={styles.odometerField}>
+              <label>Start Odometer (km)</label>
+              <input
+                type="number"
+                className={styles.odometerInput}
+                placeholder="e.g. 45000"
+                value={startOdometer}
+                onChange={(e) => { setStartOdometer(e.target.value); setOdometerSaved(false); }}
+                min="0"
+                step="0.1"
+              />
+            </div>
+            <div className={styles.odometerField}>
+              <label>End Odometer (km)</label>
+              <input
+                type="number"
+                className={styles.odometerInput}
+                placeholder="e.g. 45032"
+                value={endOdometer}
+                onChange={(e) => { setEndOdometer(e.target.value); setOdometerSaved(false); }}
+                min="0"
+                step="0.1"
+              />
+            </div>
+          </div>
+          {calculatedDistance && (
+            <div className={styles.odometerDistance}>
+              Total Distance: <strong>{calculatedDistance} km</strong>
+            </div>
+          )}
+          <div className={styles.odometerActions}>
+            <button
+              className={styles.odometerSaveBtn}
+              onClick={handleSaveOdometer}
+              disabled={savingOdometer || (!startOdometer && !endOdometer)}
+            >
+              {savingOdometer ? 'Saving...' : 'Save Odometer'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className={styles.actionButtons}>
+        <motion.button
+          className={`${styles.actionBtn} ${styles.voiceBtn}`}
+          onClick={() => navigate(`/staff/clients/${clientId}/voice-note`)}
+          disabled={!canCreateNotes}
+          title={!canCreateNotes ? getDisabledReason() : 'Record a voice note'}
+          whileHover={canCreateNotes ? { scale: 1.02 } : {}}
+          whileTap={canCreateNotes ? { scale: 0.98 } : {}}
         >
-          <svg width="28" height="28" fill="none" stroke="#805AD5" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </button>
-        <div style={{ marginBottom: 18, marginTop: 8 }}>
-          <h2 style={{ fontWeight: 700, fontSize: 28, color: "#2E2E2E", margin: 0, letterSpacing: 0.2 }}>Write Note</h2>
-        </div>
-        <textarea
-          value={note}
-          onChange={e => setNote(e.target.value)}
-          placeholder={`Type your observation...`}
-          style={{
-            width: '100%',
-            minHeight: 120,
-            maxHeight: 220,
-            borderRadius: 14,
-            border: '1.5px solid #B8A6D9',
-            padding: '16px 14px',
-            fontSize: 17,
-            background: '#F8F9ED',
-            color: '#2E2E2E',
-            marginBottom: 18,
-            outline: 'none',
-            resize: 'vertical',
-            boxShadow: '0 1px 4px #E0E7EF',
-            transition: 'border 0.2s, box-shadow 0.2s',
-          }}
-        />
-        {error && <div style={{ color: '#C53030', textAlign: 'left', marginBottom: 12, fontSize: 16 }}>{error}</div>}
-        <div style={{ display: 'flex', gap: 18, marginTop: 10, justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{
-              background: '#fff',
-              color: '#805AD5',
-              border: '1.5px solid #805AD5',
-              borderRadius: 8,
-              padding: '10px 28px',
-              fontWeight: 600,
-              fontSize: 16,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              boxShadow: '0 1px 4px #E0E7EF',
-              transition: 'background 0.15s, color 0.15s, border 0.15s',
-            }}
-            onMouseOver={e => {
-              e.currentTarget.style.background = '#F8F9ED';
-              e.currentTarget.style.color = '#6B6B6B';
-            }}
-            onMouseOut={e => {
-              e.currentTarget.style.background = '#fff';
-              e.currentTarget.style.color = '#805AD5';
-            }}
-          >Cancel</button>
-          <button
-            onClick={handleSave}
-            style={{
-              background: saving || !note.trim() ? '#B8A6D9' : '#805AD5',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 8,
-              padding: '10px 32px',
-              fontWeight: 700,
-              fontSize: 17,
-              cursor: saving || !note.trim() ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              boxShadow: '0 2px 8px #E0E7EF',
-              opacity: saving || !note.trim() ? 0.7 : 1,
-              transition: 'background 0.15s, opacity 0.15s',
-            }}
-            disabled={saving || !note.trim()}
-          >
-            <svg width="18" height="18" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            Save Note
-          </button>
-        </div>
+          <Mic size={20} />
+          Record Voice Note
+        </motion.button>
+        <motion.button
+          className={`${styles.actionBtn} ${styles.textBtn}`}
+          onClick={() => navigate(`/staff/clients/${clientId}/write-note`)}
+          disabled={!canCreateNotes}
+          title={!canCreateNotes ? getDisabledReason() : 'Write a text note'}
+          whileHover={canCreateNotes ? { scale: 1.02 } : {}}
+          whileTap={canCreateNotes ? { scale: 0.98 } : {}}
+        >
+          <PenLine size={20} />
+          Write Text Note
+        </motion.button>
+        <motion.button
+          className={`${styles.actionBtn} ${styles.fileBtn}`}
+          onClick={() => setShowFileUpload(true)}
+          disabled={!canCreateNotes}
+          title={!canCreateNotes ? getDisabledReason() : 'Upload files'}
+          whileHover={canCreateNotes ? { scale: 1.02 } : {}}
+          whileTap={canCreateNotes ? { scale: 0.98 } : {}}
+        >
+          <Upload size={20} />
+          Upload Files
+        </motion.button>
+        <motion.button
+          className={`${styles.actionBtn} ${styles.appointmentBtn}`}
+          onClick={() => navigate(`/staff/clients/${clientId}/appointment`)}
+          disabled={!canCreateNotes}
+          title={!canCreateNotes ? getDisabledReason() : 'Log an appointment'}
+          whileHover={canCreateNotes ? { scale: 1.02 } : {}}
+          whileTap={canCreateNotes ? { scale: 0.98 } : {}}
+        >
+          <CalendarPlus size={20} />
+          Appointment
+        </motion.button>
+        <motion.button
+          className={`${styles.actionBtn} ${styles.incidentBtn}`}
+          onClick={() => navigate(`/staff/clients/${clientId}/incident`)}
+          disabled={!canCreateNotes}
+          title={!canCreateNotes ? getDisabledReason() : 'Report an incident'}
+          whileHover={canCreateNotes ? { scale: 1.02 } : {}}
+          whileTap={canCreateNotes ? { scale: 0.98 } : {}}
+        >
+          <AlertTriangle size={20} />
+          Incident
+        </motion.button>
+        <motion.button
+          className={`${styles.actionBtn} ${styles.consolidationBtn}`}
+          onClick={() => navigate(`/staff/clients/${clientId}/daily-consolidation`)}
+          disabled={reviewNotes.length === 0}
+          title={reviewNotes.length === 0 ? 'No notes in review to confirm' : 'Review and confirm notes'}
+          whileHover={reviewNotes.length > 0 ? { scale: 1.02 } : {}}
+          whileTap={reviewNotes.length > 0 ? { scale: 0.98 } : {}}
+        >
+          <ClipboardList size={20} />
+          Review & Confirm Notes
+        </motion.button>
       </div>
-    </div>
+
+      {/* File Upload Modal */}
+      <AnimatePresence>
+        {showFileUpload && (
+          <motion.div
+            className={styles.modalOverlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => !uploading && setShowFileUpload(false)}
+          >
+            <motion.div
+              className={styles.modal}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className={styles.modalHeader}>
+                <h3>Upload Files</h3>
+                <button
+                  className={styles.modalClose}
+                  onClick={() => !uploading && setShowFileUpload(false)}
+                  disabled={uploading}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className={styles.modalBody}>
+                <div
+                  className={styles.dropZone}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={40} strokeWidth={1} />
+                  <p>Click to select files or drag and drop</p>
+                  <span>Supports: Images only (JPEG, PNG, GIF, WebP - Max 10MB each)</span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    style={{ display: 'none' }}
+                  />
+                </div>
+
+                {uploadFiles.length > 0 && (
+                  <div className={styles.fileList}>
+                    {uploadFiles.map((file, index) => (
+                      <div key={index} className={styles.fileItem}>
+                        <div className={styles.fileInfo}>
+                          {getFileIcon(file.type)}
+                          <span className={styles.fileName}>{file.name}</span>
+                          <span className={styles.fileSize}>{formatFileSize(file.size)}</span>
+                        </div>
+                        <button
+                          className={styles.removeFile}
+                          onClick={() => removeFile(index)}
+                          disabled={uploading}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.modalActions}>
+                <button
+                  className={styles.cancelBtn}
+                  onClick={() => setShowFileUpload(false)}
+                  disabled={uploading}
+                >
+                  Cancel
+                </button>
+                <button
+                  className={styles.uploadBtn}
+                  onClick={handleFileUpload}
+                  disabled={uploading || uploadFiles.length === 0}
+                >
+                  {uploading ? 'Uploading...' : `Upload ${uploadFiles.length} File${uploadFiles.length !== 1 ? 's' : ''}`}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Section A: Notes in Review */}
+      {reviewNotes.length > 0 && (
+        <div className={styles.pendingConsolidationSection}>
+          <div className={styles.pendingConsolidationHeader}>
+            <h2 className={styles.sectionTitle}>
+              <ClipboardList size={20} />
+              Notes in Review ({reviewNotes.length} note{reviewNotes.length !== 1 ? 's' : ''})
+            </h2>
+            <motion.button
+              className={styles.consolidateNowBtn}
+              onClick={() => navigate(`/staff/clients/${clientId}/daily-consolidation`)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Check size={18} />
+              Review & Confirm
+            </motion.button>
+          </div>
+          <p className={styles.pendingConsolidationDescription}>
+            These notes are waiting to be reviewed and confirmed. Click "Review & Confirm" to move them to Consolidated.
+          </p>
+          <div className={styles.pendingNotesList}>
+            {reviewNotes.slice(0, 3).map((note) => (
+              <div key={note._id} className={styles.pendingNotePreview}>
+                <span className={styles.pendingNoteTime}>
+                  {new Date(note.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className={styles.pendingNoteType}>
+                  {note.noteType === 'voice' ? 'Voice' : note.noteType === 'file' ? 'File' : 'Text'}
+                </span>
+                <span className={styles.pendingNoteContent}>
+                  {note.content.substring(0, 100)}{note.content.length > 100 ? '...' : ''}
+                </span>
+              </div>
+            ))}
+            {reviewNotes.length > 3 && (
+              <div className={styles.pendingNoteMore}>
+                +{reviewNotes.length - 3} more note{reviewNotes.length - 3 !== 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Section B: Consolidated Notes */}
+      {consolidatedNotes.length > 0 && (
+        <div className={styles.consolidatedSection}>
+          <div className={styles.consolidatedHeader}>
+            <h2 className={styles.sectionTitle}>
+              <FileText size={20} />
+              Consolidated Notes ({consolidatedNotes.length})
+            </h2>
+            <motion.button
+              className={styles.lockSendBtn}
+              onClick={handleLockAndSend}
+              disabled={lockingSending}
+              whileHover={!lockingSending ? { scale: 1.02 } : {}}
+              whileTap={!lockingSending ? { scale: 0.98 } : {}}
+            >
+              <Lock size={18} />
+              <Send size={16} />
+              {lockingSending ? 'Sending...' : 'Confirm, Lock & Send to Supervisor'}
+            </motion.button>
+          </div>
+
+          {/* Continuous document view */}
+          <div className={styles.consolidatedDocument}>
+            {consolidatedNotes.map((note, index) => (
+              <div key={note._id} className={styles.consolidatedEntry}>
+                <div className={styles.entryTimestamp}>
+                  <Calendar size={12} />
+                  {new Date(note.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  {' - '}
+                  <span className={styles.entryTypeBadge}>
+                    {note.noteType === 'voice' && <Mic size={12} />}
+                    {note.noteType === 'file' && <Paperclip size={12} />}
+                    {(note.noteType === 'text' || !note.noteType) && <PenLine size={12} />}
+                    {note.noteType === 'voice' ? 'Voice' : note.noteType === 'file' ? 'File' : 'Text'}
+                  </span>
+                </div>
+                <div className={styles.entryContent}>
+                  {note.content}
+                </div>
+                {note.attachments && note.attachments.length > 0 && (
+                  <div className={styles.entryAttachments}>
+                    {note.attachments.map((att, i) => (
+                      <span key={att._id || i} className={styles.attachmentChip}>
+                        <Paperclip size={12} /> {att.originalName}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {index < consolidatedNotes.length - 1 && <hr className={styles.entrySeparator} />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section C: Submitted/Locked Notes */}
+      {submittedNotes.length === 0 && reviewNotes.length === 0 && consolidatedNotes.length === 0 ? (
+        <div className={styles.emptyState}>
+          <div className={styles.emptyIcon}>
+            <FileText size={64} strokeWidth={1} />
+          </div>
+          <h3 className={styles.emptyTitle}>No notes yet</h3>
+          <p className={styles.emptyDescription}>
+            Create notes during your shift. They will go through Review, then Consolidation, before being sent to your supervisor.
+          </p>
+        </div>
+      ) : submittedNotes.length > 0 && (
+        <>
+          <h2 className={styles.sectionTitle}>
+            <Lock size={20} />
+            Submitted Notes
+          </h2>
+          {submittedNotes.map((note) => (
+            <motion.div
+              key={note._id}
+              className={styles.submittedDocumentCard}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Document Header */}
+              <div className={styles.submittedDocHeader}>
+                <div className={styles.badgeGroup}>
+                  <span className={`${styles.badge} ${styles.lockedBadge}`}>
+                    <Lock size={12} />
+                    Locked
+                  </span>
+                  <span className={`${styles.badge} ${styles.statusBadge} ${getStatusBadgeClass(getDisplayStatus(note))}`}>
+                    {getDisplayStatus(note)}
+                  </span>
+                </div>
+                <div className={styles.submittedDocMeta}>
+                  <span className={styles.submittedDocDate}>
+                    <Calendar size={14} />
+                    {new Date(note.shiftDate || note.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </span>
+                  {note.shift && (
+                    <span className={styles.submittedDocShift}>
+                      {note.shift}
+                    </span>
+                  )}
+                  {note.entries && note.entries.length > 0 && (
+                    <span className={styles.submittedDocCount}>
+                      {note.entries.length} entr{note.entries.length !== 1 ? 'ies' : 'y'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Document Body — entries or plain content */}
+              {note.entries && note.entries.length > 0 ? (
+                <div className={styles.consolidatedDocument}>
+                  {note.entries.map((entry, index) => (
+                    <div key={index} className={styles.consolidatedEntry}>
+                      <div className={styles.entryTimestamp}>
+                        <Calendar size={12} />
+                        {new Date(entry.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        {' - '}
+                        <span className={styles.entryTypeBadge}>
+                          {entry.noteType === 'voice' && <Mic size={12} />}
+                          {entry.noteType === 'file' && <Paperclip size={12} />}
+                          {(entry.noteType === 'text' || !entry.noteType) && <PenLine size={12} />}
+                          {entry.noteType === 'voice' ? 'Voice' : entry.noteType === 'file' ? 'File' : 'Text'}
+                        </span>
+                      </div>
+                      <div className={styles.entryContent}>
+                        {entry.content}
+                      </div>
+                      {entry.attachments && entry.attachments.length > 0 && (
+                        <div className={styles.entryAttachments}>
+                          {entry.attachments.map((att, i) => (
+                            <span key={att._id || i} className={styles.attachmentChip}>
+                              <Paperclip size={12} /> {att.originalName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {index < note.entries.length - 1 && <hr className={styles.entrySeparator} />}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.consolidatedDocument}>
+                  <div className={styles.consolidatedEntry}>
+                    <div className={styles.entryContent}>{note.content}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Document Actions */}
+              <div className={styles.submittedDocActions}>
+                <button
+                  className={styles.viewBtn}
+                  onClick={() => navigate(`/staff/clients/${clientId}/notes/${note._id}`)}
+                >
+                  <Eye size={16} />
+                  View Full Note
+                </button>
+                {note.isLocked && user?.role === 'supervisor' && (
+                  <button
+                    className={styles.unlockBtn}
+                    onClick={() => handleUnlockNote(note._id)}
+                  >
+                    <Unlock size={16} />
+                    Unlock
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </>
+      )}
+    </DashboardLayout>
   );
 }
-
-// --- Styles ---
-const styles = {
-    // ...existing styles...
-    modalOverlay: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      width: '100vw',
-      height: '100vh',
-      background: 'rgba(128,90,213,0.10)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000
-    },
-    modalContent: {
-      background: '#fff',
-      borderRadius: 16,
-      boxShadow: '0 4px 24px #B8A6D9',
-      padding: 32,
-      minWidth: 340,
-      maxWidth: 540,
-      width: '90vw',
-      maxHeight: '80vh',
-      overflowY: 'auto',
-      position: 'relative'
-    },
-    closeModalBtn: {
-      background: 'none',
-      border: 'none',
-      cursor: 'pointer',
-      padding: 4,
-      borderRadius: 8,
-      color: '#805AD5',
-      fontSize: 18,
-      display: 'flex',
-      alignItems: 'center',
-      transition: 'background 0.15s',
-    },
-  page: {
-    background: "#F8F9ED", // linen
-    minHeight: "100vh",
-    fontFamily: "Inter, system-ui, Arial, sans-serif"
-  },
-  headerRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 18,
-    paddingTop: 18,
-    paddingLeft: 8
-  },
-  backBtn: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: 0,
-    marginRight: 4
-  },
-  pageTitle: {
-    fontWeight: 500,
-    fontSize: 24,
-    color: "#2E2E2E",
-    margin: 0
-  },
-  card: {
-      background: "#fff",
-      borderRadius: 16,
-      boxShadow: "0 2px 8px #E0E7EF",
-      padding: 24,
-      marginBottom: 18,
-      border: '1.5px solid #805AD5',
-      width: '100%',
-      maxWidth: 900,
-      marginLeft: 'auto',
-      marginRight: 'auto'
-    },
-  clientInfoRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 18
-  },
-  avatarBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    background: "#F8F9ED",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12
-  },
-  clientName: {
-        fontWeight: 700,
-        fontSize: 28,
-        color: "#805AD5",
-        margin: 0
-      },
-  careLevel: {
-    color: "#6B6B6B",
-    fontSize: 14,
-    marginTop: 4
-  },
-  carePlan: {
-    color: "#6B6B6B",
-    fontSize: 14,
-    marginTop: 2
-  },
-  careLabel: {
-    color: "#B8A6D9",
-    fontWeight: 500,
-    marginRight: 4
-  },
-  sectionTitle: {
-      fontWeight: 600,
-      color: "#805AD5",
-      fontSize: 18,
-      marginBottom: 6
-    },
-  sectionDesc: {
-    color: "#6B6B6B",
-    fontSize: 15,
-    marginBottom: 16
-  },
-  categoryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: 18
-  },
-  categoryCard: {
-    borderRadius: 12,
-    padding: 18,
-    cursor: "pointer",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start",
-    transition: "all 0.15s"
-  },
-  categoryIcon: {
-    fontSize: 22,
-    marginBottom: 8,
-    color: "#B8A6D9"
-  },
-  categoryLabel: {
-    fontWeight: 500,
-    color: "#2E2E2E",
-    fontSize: 16
-  },
-  categoryDesc: {
-    color: "#6B6B6B",
-    fontSize: 14,
-    marginTop: 2
-  },
-  selectedMark: {
-    marginTop: 10,
-    color: "#B8A6D9",
-    fontWeight: 500,
-    fontSize: 14
-  },
-  actionRow: {
-    display: "flex",
-    gap: 18,
-    marginTop: 10
-  },
-  actionBtn: {
-    flex: 1,
-    background: "#B8A6D9",
-    color: "#fff",
-    border: "none",
-    borderRadius: 10,
-    padding: "18px 0",
-    fontWeight: 500,
-    fontSize: 16,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    boxShadow: "0 2px 8px #E0E7EF"
-  },
-  saveBtn: {
-      background: "#805AD5",
-      color: "#fff",
-      border: "none",
-      borderRadius: 8,
-      padding: "6px 16px",
-      fontWeight: 500,
-      fontSize: 14,
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-      gap: 4
-    },
-  cancelBtn: {
-      background: "#fff",
-      color: "#805AD5",
-      border: "1.5px solid #805AD5",
-      borderRadius: 8,
-      padding: "6px 16px",
-      fontWeight: 500,
-      fontSize: 14,
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-      gap: 4
-    },
-  loading: {
-    color: "#B8A6D9",
-    textAlign: "center",
-    marginTop: 40,
-    fontSize: 18
-  },
-  error: {
-    color: "#C53030",
-    textAlign: "center",
-    marginTop: 40,
-    fontSize: 18
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000
-  },
-  modalContent: {
-    background: "#fff",
-    borderRadius: 16,
-    padding: 24,
-    maxWidth: 600,
-    width: "90%",
-    maxHeight: "80vh",
-    overflowY: "auto",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.3)"
-  },
-  closeModalBtn: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: 0
-  }
-};
-export default ClientNotes;

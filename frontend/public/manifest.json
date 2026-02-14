@@ -1,9 +1,9 @@
 {
-  "short_name": "CareNote",
-  "name": "CareNote App",
+  "short_name": "NexCare",
+  "name": "NexCare App",
   "icons": [],
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#805AD5"
+  "theme_color": "#7e3285"
 }

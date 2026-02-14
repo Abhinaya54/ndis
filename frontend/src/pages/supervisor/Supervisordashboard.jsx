@@ -1,291 +1,457 @@
-import React, { useEffect, useState, useContext } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  FileText, CheckCircle, Clock, Users, User,
+  AlertTriangle, Activity, ChevronRight, UserCheck, UserX, Briefcase
+} from 'lucide-react';
 import api from '../../api/api';
-import { AuthContext } from '../../context/AuthContext';
-import { getSupervisorAssignments, createAssignment } from '../../api/assignments';
-import { connectSocket, onAssignmentUpdate, onAssignmentStatus, joinStaffRoom } from '../../api/socket';
-import { Link } from 'react-router-dom';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import ViewNotesTab from '../../components/supervisor/ViewNotesTab';
+import VerifyNotesTab from '../../components/supervisor/VerifyNotesTab';
+import AssignStaffTab from '../../components/supervisor/AssignStaffTab';
+import UnlockNotesTab from '../../components/supervisor/UnlockNotesTab';
+import TravelLogTab from '../../components/supervisor/TravelLogTab';
+import ShiftHistoryTab from '../../components/supervisor/ShiftHistoryTab';
+import styles from './Supervisordashboard.module.css';
 
-const Supervisordashboard = () => {
-	const [dashboard, setDashboard] = useState(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState("");
-    const { user } = useContext(AuthContext);
-    const [assignments, setAssignments] = useState([]);
-	const [staffList, setStaffList] = useState([]);
-	const [clientsList, setClientsList] = useState([]);
-	const [form, setForm] = useState({ staffId: '', clientId: '', weekStartDate: '', weekEndDate: '', startTime: '', endTime: '' });
-	const [formStatus, setFormStatus] = useState({ loading: false, error: '', success: '' });
-
-	useEffect(() => {
-		const fetchDashboard = async () => {
-			setLoading(true);
-			try {
-				const res = await api.get('/api/supervisor/dashboard');
-				setDashboard(res.data);
-			} catch (err) {
-				setError(err.response?.data?.message || err.message || "Error loading dashboard");
-			}
-			setLoading(false);
-		};
-		fetchDashboard();
-	}, []);
-
-	// fetch supervisor assignments (show recent/current week)
-	useEffect(() => {
-		// fetch staff and clients for the Add Shift form
-		const fetchStaffAndClients = async () => {
-			try {
-				const [sRes, cRes] = await Promise.all([
-					api.get('/api/supervisor/staff'),
-					api.get('/api/supervisor/clients')
-				]);
-				setStaffList(sRes.data || []);
-				setClientsList(cRes.data || []);
-			} catch (e) {
-				console.warn('Could not fetch staff/clients for form', e);
-			}
-		};
-		fetchStaffAndClients();
-		const fetchAssignments = async () => {
-			try {
-				const sid = user?.id || dashboard?.supervisorId;
-				if (!sid) return;
-				const res = await getSupervisorAssignments(sid);
-				setAssignments(res || []);
-			} catch (e) {
-				console.error('Failed to load assignments', e);
-			}
-		};
-		fetchAssignments();
-
-		const socket = connectSocket();
-		if (user?.id) joinStaffRoom(user.id);
-		onAssignmentUpdate((a) => {
-			// reload assignments on update
-			fetchAssignments();
-		});
-		onAssignmentStatus((a) => fetchAssignments());
-
-		return () => {
-			// no-op disconnect here to avoid interfering with staff sockets elsewhere
-		};
-	}, [user?.id, dashboard?.supervisorId]);
-
-	if (loading) return <div style={{ color: '#805AD5', textAlign: 'center', marginTop: 40, fontSize: 18 }}>Loading dashboard...</div>;
-	if (error) return <div style={{ color: '#C53030', textAlign: 'center', marginTop: 40, fontSize: 18 }}>{error}</div>;
-	if (!dashboard) return null;
-
-	return (
-		<div style={styles.page}>
-			{/* Top summary cards */}
-			<div style={styles.summaryRow}>
-				<div style={styles.summaryCard}>
-					<div style={styles.summaryLabel}>Total Clients</div>
-					<div style={styles.summaryValue}>{dashboard.totalClients}</div>
-					<div style={styles.summarySub}>Active clients in system</div>
-				</div>
-				<div style={styles.summaryCard}>
-					<div style={styles.summaryLabel}>Staff Members</div>
-					<div style={styles.summaryValue}>{dashboard.staffMembers}</div>
-					<div style={styles.summarySub}>Currently on roster</div>
-				</div>
-				<div style={styles.summaryCard}>
-					<div style={styles.summaryLabel}>Pending Verifications</div>
-					<div style={styles.summaryValue}>{dashboard.pendingVerifications}</div>
-					<div style={styles.summarySub}>Awaiting review</div>
-				</div>
-				<div style={styles.summaryCard}>
-					<div style={styles.summaryLabel}>Completed Today</div>
-					<div style={styles.summaryValue}>{dashboard.completedToday}</div>
-					<div style={styles.summarySub}>Notes verified</div>
-				</div>
-			</div>
-
-			{/* Main cards row */}
-			<div style={styles.cardsRow}>
-				<div style={styles.bigCard}>
-					<div style={styles.bigCardTitle}>Client Notes</div>
-					<div style={styles.bigCardDesc}>Review and verify client care notes</div>
-					<Link to="/supervisor/notes-verification">
-						<button style={styles.actionBtn}>View Notes &rarr;</button>
-					</Link>
-				</div>
-				<div style={{ ...styles.bigCard, background: '#F1F8FF', border: '1.5px solid #B8A6D9' }}>
-					<div style={styles.bigCardTitle}>Staff & Clients</div>
-					<div style={styles.bigCardDesc}>Manage staff-client assignments</div>
-					<Link to="/supervisor/assignments">
-						<button style={styles.actionBtnBlue}>View Assignments &rarr;</button>
-					</Link>
-				</div>
-				<div style={styles.bigCard}>
-					<div style={styles.bigCardTitle}>Client Management</div>
-					<div style={styles.bigCardDesc}>Add or edit client records</div>
-					<Link to="/supervisor/clients">
-						<button style={styles.actionBtnBlue}>Manage Clients &rarr;</button>
-					</Link>
-				</div>
-			</div>
-
-			{/* Activity and Alerts */}
-			<div style={styles.bottomRow}>
-				<div style={{ ...styles.activityBox, flex: 1 }}>
-					<div style={styles.sectionTitle}>Recent Activity</div>
-					<div style={styles.activityList}>
-						{dashboard.recentNotes.map((note, i) => (
-							<div key={note._id || i} style={styles.activityItem}>
-								<div style={styles.activityIcon}><svg width="20" height="20" fill="none" stroke="#B8A6D9" strokeWidth="1.5" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 9h18"/></svg></div>
-								<div style={{ flex: 1 }}>
-									<div style={styles.activityTitle}>{note.clientId?.name || 'Client'}<span style={{ color: '#6B6B6B', fontWeight: 400, marginLeft: 8 }}>{note.category ? `${note.category} note` : 'Note'} recorded</span></div>
-									<div style={styles.activityMeta}>
-										<span style={{ color: '#6B6B6B' }}>{note.staffId?.name || 'Staff'}</span>
-										<span style={{ color: '#B8A6D9', marginLeft: 12 }}>{timeAgo(note.createdAt)}</span>
-									</div>
-								</div>
-								<div style={note.status === 'Pending' ? styles.statusPending : styles.statusVerified}>{note.status === 'Pending' ? 'Pending' : 'Verified'}</div>
-							</div>
-						))}
-					</div>
-				</div>
-			</div>
-
-		{/* Assignments quick view */}
-		{/* Add Shift form (supervisor only) */}
-		<div style={{ margin: '0 0 18px 32px' }}>
-			<div style={{ ...styles.activityBox, padding: 18 }}>
-				<div style={styles.sectionTitle}>Add Weekly Shift</div>
-				{formStatus.error && <div style={{ color: '#C53030', marginBottom: 8 }}>{formStatus.error}</div>}
-				{formStatus.success && <div style={{ color: '#2F7A4E', marginBottom: 8 }}>{formStatus.success}</div>}
-				<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-					<select value={form.staffId} onChange={e => setForm({ ...form, staffId: e.target.value })}>
-						<option value="">Select staff</option>
-						{staffList.map(s => (<option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>))}
-					</select>
-					<select value={form.clientId} onChange={e => setForm({ ...form, clientId: e.target.value })}>
-						<option value="">Select client</option>
-						{clientsList.map(c => (<option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>))}
-					</select>
-					<input type="date" value={form.weekStartDate} onChange={e => setForm({ ...form, weekStartDate: e.target.value })} />
-					<input type="date" value={form.weekEndDate} onChange={e => setForm({ ...form, weekEndDate: e.target.value })} />
-					<input type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} />
-					<input type="time" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} />
-				</div>
-				<div style={{ marginTop: 12, textAlign: 'right' }}>
-					<button style={styles.actionBtnBlue} disabled={formStatus.loading} onClick={async () => {
-						setFormStatus({ loading: true, error: '', success: '' });
-						try {
-							if (!form.staffId || !form.clientId || !form.weekStartDate || !form.weekEndDate || !form.startTime || !form.endTime) {
-								throw new Error('Please fill all fields');
-							}
-							const [sh, sm] = form.startTime.split(':').map(Number);
-							const [eh, em] = form.endTime.split(':').map(Number);
-							if (eh < sh || (eh === sh && em <= sm)) throw new Error('End time must be after start time');
-							await createAssignment({
-								staffId: form.staffId,
-								clientId: form.clientId,
-								weekStartDate: form.weekStartDate,
-								weekEndDate: form.weekEndDate,
-								startTime: form.startTime,
-								endTime: form.endTime
-							});
-							setFormStatus({ loading: false, error: '', success: 'Assignment created' });
-							// refresh assignments
-							const sid = user?.id || dashboard?.supervisorId;
-							if (sid) {
-								const res = await getSupervisorAssignments(sid);
-								setAssignments(res || []);
-							}
-							setForm({ staffId: '', clientId: '', weekStartDate: '', weekEndDate: '', startTime: '', endTime: '' });
-						} catch (err) {
-							console.error(err);
-							setFormStatus({ loading: false, error: err.message || 'Failed to create assignment', success: '' });
-						}
-					}}>
-						Create Assignment
-					</button>
-				</div>
-			</div>
-		</div>
-		<div style={{ margin: '0 0 32px 32px' }}>
-			<div style={{ ...styles.activityBox, padding: 18 }}>
-				<div style={styles.sectionTitle}>Weekly Assignments</div>
-				{assignments.length === 0 ? (
-					<div style={{ color: '#6B6B6B' }}>No assignments yet.</div>
-				) : (
-					<table style={{ width: '100%', borderCollapse: 'collapse' }}>
-						<thead>
-							<tr style={{ textAlign: 'left', borderBottom: '1px solid #F1F1F1' }}>
-								<th style={{ padding: '8px 6px' }}>Client</th>
-								<th style={{ padding: '8px 6px' }}>Staff</th>
-								<th style={{ padding: '8px 6px' }}>Timing</th>
-								<th style={{ padding: '8px 6px' }}>Week</th>
-								<th style={{ padding: '8px 6px' }}>Status</th>
-							</tr>
-						</thead>
-						<tbody>
-							{assignments.map((a) => (
-								<tr key={a._id} style={{ borderBottom: '1px solid #FAFAFA' }}>
-									<td style={{ padding: '10px 6px' }}>{a.clientId?.name || (a.clientId && a.clientId._id) || '—'}</td>
-									<td style={{ padding: '10px 6px' }}>{a.staffId?.name || (a.staffId && a.staffId._id) || '—'}</td>
-									<td style={{ padding: '10px 6px' }}>{a.startTime} — {a.endTime}</td>
-									<td style={{ padding: '10px 6px' }}>{new Date(a.weekStartDate).toLocaleDateString()} ↦ {new Date(a.weekEndDate).toLocaleDateString()}</td>
-									<td style={{ padding: '10px 6px' }}>{a.status}</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				)}
-			</div>
-		</div>
-		</div>
-	);
+const pageConfig = {
+  '/supervisor/notes': { title: 'View Notes', subtitle: 'All staff notes', component: 'view-notes' },
+  '/supervisor/verify-notes': { title: 'Verify Notes', subtitle: 'Approve pending notes', component: 'verify-notes' },
+  '/supervisor/assign-staff': { title: 'Assign Staff', subtitle: 'Staff assignments', component: 'assign-staff' },
+  '/supervisor/unlock-notes': { title: 'Unlock Notes', subtitle: 'Edit locked notes', component: 'unlock-notes' },
+  '/supervisor/travel': { title: 'Travel Logs', subtitle: 'Travel records', component: 'travel-log' },
+  '/supervisor/shift-history': { title: 'Shift History', subtitle: 'Completed shift records', component: 'shift-history' },
 };
 
-function timeAgo(date) {
-	if (!date) return '';
-	const now = new Date();
-	const d = new Date(date);
-	const diff = Math.floor((now - d) / 1000);
-	if (diff < 60) return `${diff} seconds ago`;
-	if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
-	if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
-	return d.toLocaleDateString();
-}
+const formatTimeAgo = (timestamp) => {
+  const now = new Date();
+  const time = new Date(timestamp);
+  const diffMs = now - time;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
 
-// alerts removed from UI
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+};
 
-const styles = {
-	page: { background: '#F8F9ED', minHeight: '100vh', fontFamily: 'Inter, Poppins, Roboto, Arial, sans-serif', padding: 0 },
-	summaryRow: { display: 'flex', gap: 24, margin: '32px 0 18px 32px' },
-	summaryCard: { background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px #E0E7EF', padding: 24, minWidth: 180, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' },
-	summaryLabel: { color: '#6B6B6B', fontSize: 15, marginBottom: 8 },
-	summaryValue: { fontWeight: 700, fontSize: 24, color: '#2E2E2E' },
-	summarySub: { color: '#B8A6D9', fontSize: 13, marginTop: 2 },
-	cardsRow: { display: 'flex', gap: 24, margin: '0 0 32px 32px' },
-	bigCard: { background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px #E0E7EF', padding: 28, minWidth: 260, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start' },
-	bigCardTitle: { fontWeight: 700, fontSize: 18, color: '#2E2E2E', marginBottom: 6 },
-	bigCardDesc: { color: '#6B6B6B', fontSize: 15, marginBottom: 18 },
-	actionBtn: { background: '#5cb85c', color: '#fff', padding: '8px 16px', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer' },
-	actionBtnBlue: { background: '#2563EB', color: '#fff', padding: '8px 16px', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer' },
-	actionBtnDisabled: { background: '#E0E7EF', color: '#6B6B6B', padding: '8px 16px', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'not-allowed' },
-	bottomRow: { display: 'flex', gap: 24, margin: '0 0 0 32px' },
-	activityBox: { background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px #E0E7EF', padding: 24, flex: 2, minWidth: 340 },
-	sectionTitle: { fontWeight: 700, fontSize: 17, color: '#2E2E2E', marginBottom: 12 },
-	activityList: {},
-	activityItem: { display: 'flex', alignItems: 'center', gap: 16, padding: '12px 0', borderBottom: '1px solid #F1F1F1' },
-	activityIcon: { background: '#F1F8FF', borderRadius: 8, padding: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-	activityTitle: { fontWeight: 600, color: '#2E2E2E', fontSize: 15 },
-	activityMeta: { fontSize: 13, color: '#6B6B6B', marginTop: 2 },
-	statusPending: { background: '#E0E7EF', color: '#6B6B6B', borderRadius: 8, padding: '2px 10px', fontWeight: 500, fontSize: 13, marginLeft: 8 },
-	statusVerified: { background: '#E6F4EA', color: '#2F7A4E', borderRadius: 8, padding: '2px 10px', fontWeight: 500, fontSize: 13, marginLeft: 8 },
-	alertsBox: { background: '#fff', borderRadius: 14, boxShadow: '0 2px 8px #E0E7EF', padding: 24, flex: 1, minWidth: 260 },
-	alertsList: {},
-	alertItem: { borderRadius: 10, padding: 16, marginBottom: 16 },
-	alertTitle: { fontWeight: 600, fontSize: 15, marginBottom: 4 },
-	alertMsg: { color: '#2E2E2E', fontSize: 14, marginBottom: 6 },
-	alertTime: { color: '#6B6B6B', fontSize: 12 },
-	urgentBadge: { background: '#F56565', color: '#fff', borderRadius: 6, padding: '2px 8px', fontWeight: 600, fontSize: 12, marginLeft: 8 },
-	warningBadge: { background: '#F6E05E', color: '#2E2E2E', borderRadius: 6, padding: '2px 8px', fontWeight: 600, fontSize: 12, marginLeft: 8 },
-	infoBadge: { background: '#63B3ED', color: '#fff', borderRadius: 6, padding: '2px 8px', fontWeight: 600, fontSize: 12, marginLeft: 8 }
+const Supervisordashboard = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentPage = pageConfig[location.pathname] || null;
+  const isDashboard = !currentPage;
+
+  const [stats, setStats] = useState({
+    totalNotes: 0,
+    pendingNotes: 0,
+    verifiedNotes: 0,
+    totalStaff: 0,
+    totalClients: 0
+  });
+  const [overview, setOverview] = useState(null);
+  const [loading, setLoading] = useState(isDashboard);
+
+  useEffect(() => {
+    if (isDashboard) {
+      setLoading(true);
+      fetchDashboardStats();
+      fetchOverview();
+    }
+  }, [isDashboard]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      const res = await api.get('/api/supervisor/dashboard');
+      if (res.data.success && res.data.data) {
+        const data = res.data.data;
+        setStats({
+          totalNotes: parseInt(data.totalNotes) || 0,
+          pendingNotes: parseInt(data.pendingNotes) || 0,
+          verifiedNotes: parseInt(data.verifiedNotes) || 0,
+          totalStaff: parseInt(data.totalStaff) || 0,
+          totalClients: parseInt(data.totalClients) || 0
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load dashboard:', err);
+    }
+    setLoading(false);
+  };
+
+  const fetchOverview = async () => {
+    try {
+      const res = await api.get('/api/supervisor/dashboard/overview');
+      if (res.data.success) {
+        setOverview(res.data.data);
+      }
+    } catch (err) {
+      console.error('Overview error:', err);
+    }
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
+
+  const getActivityDescription = (activity) => {
+    const typeLabel = activity.noteType === 'voice' ? 'voice note' : 'text note';
+    if (activity.type === 'submission') {
+      return `${activity.staffName} submitted a ${typeLabel} for ${activity.clientName}`;
+    }
+    if (activity.type === 'verification') {
+      return `${typeLabel} for ${activity.clientName} by ${activity.staffName} was approved`;
+    }
+    if (activity.type === 'rejection') {
+      return `${typeLabel} for ${activity.clientName} by ${activity.staffName} was rejected`;
+    }
+    return `${activity.staffName} created a ${typeLabel} for ${activity.clientName}`;
+  };
+
+  const getActivityIcon = (type) => {
+    if (type === 'submission') return <Clock size={16} />;
+    if (type === 'verification') return <CheckCircle size={16} />;
+    if (type === 'rejection') return <AlertTriangle size={16} />;
+    return <FileText size={16} />;
+  };
+
+  const getActivityColor = (type) => {
+    if (type === 'submission') return styles.activitySubmission;
+    if (type === 'verification') return styles.activityVerification;
+    if (type === 'rejection') return styles.activityRejection;
+    return '';
+  };
+
+  // Sub-pages: render only the page component with its own title
+  if (currentPage) {
+    return (
+      <DashboardLayout
+        title={currentPage.title}
+        subtitle={currentPage.subtitle}
+      >
+        <motion.div
+          key={currentPage.component}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          {currentPage.component === 'view-notes' && <ViewNotesTab />}
+          {currentPage.component === 'verify-notes' && <VerifyNotesTab />}
+          {currentPage.component === 'assign-staff' && <AssignStaffTab />}
+          {currentPage.component === 'unlock-notes' && <UnlockNotesTab />}
+          {currentPage.component === 'travel-log' && <TravelLogTab />}
+          {currentPage.component === 'shift-history' && <ShiftHistoryTab />}
+        </motion.div>
+      </DashboardLayout>
+    );
+  }
+
+  // Dashboard home: stats cards + overview sections
+  return (
+    <DashboardLayout
+      title="Supervisor Dashboard"
+      subtitle="Manage staff and client care notes efficiently"
+      loading={loading}
+    >
+      {/* Statistics Cards */}
+      <motion.div
+        className={styles.statsGrid}
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div className={styles.statCard} variants={itemVariants} whileHover={{ y: -4 }}>
+          <p className={styles.statLabel}>Total Notes</p>
+          <div className={styles.statContent}>
+            <div className={`${styles.statValue} ${styles.blue}`}>{stats.totalNotes}</div>
+            <div className={`${styles.statIcon} ${styles.blue}`}>
+              <FileText size={24} />
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div className={styles.statCard} variants={itemVariants} whileHover={{ y: -4 }}>
+          <p className={styles.statLabel}>Verified Notes</p>
+          <div className={styles.statContent}>
+            <div className={`${styles.statValue} ${styles.green}`}>{stats.verifiedNotes}</div>
+            <div className={`${styles.statIcon} ${styles.green}`}>
+              <CheckCircle size={24} />
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div className={styles.statCard} variants={itemVariants} whileHover={{ y: -4 }}>
+          <p className={styles.statLabel}>Pending Notes</p>
+          <div className={styles.statContent}>
+            <div className={`${styles.statValue} ${styles.yellow}`}>{stats.pendingNotes}</div>
+            <div className={`${styles.statIcon} ${styles.yellow}`}>
+              <Clock size={24} />
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div className={styles.statCard} variants={itemVariants} whileHover={{ y: -4 }}>
+          <p className={styles.statLabel}>Total Staff</p>
+          <div className={styles.statContent}>
+            <div className={`${styles.statValue} ${styles.purple}`}>{stats.totalStaff}</div>
+            <div className={`${styles.statIcon} ${styles.purple}`}>
+              <Users size={24} />
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div className={styles.statCard} variants={itemVariants} whileHover={{ y: -4 }}>
+          <p className={styles.statLabel}>Total Clients</p>
+          <div className={styles.statContent}>
+            <div className={`${styles.statValue} ${styles.cyan}`}>{stats.totalClients}</div>
+            <div className={`${styles.statIcon} ${styles.cyan}`}>
+              <User size={24} />
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* Dashboard Overview - 4 sections */}
+      <motion.div
+        className={styles.overviewGrid}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        {/* Section 1: Today's Active Shifts */}
+        <div className={styles.overviewCard}>
+          <div className={styles.overviewHeader}>
+            <div className={styles.overviewHeaderLeft}>
+              <div className={`${styles.overviewIconWrap} ${styles.blue}`}>
+                <Clock size={18} />
+              </div>
+              <h3 className={styles.overviewTitle}>Today's Active Shifts</h3>
+            </div>
+            <span className={styles.overviewBadge}>
+              {overview?.activeShifts?.length || 0}
+            </span>
+          </div>
+          <div className={styles.overviewBody}>
+            {overview?.activeShifts?.length > 0 ? (
+              <div className={styles.shiftList}>
+                {overview.activeShifts.map((shift, idx) => (
+                  <div key={idx} className={styles.shiftRow}>
+                    <div className={styles.shiftInfo}>
+                      <span className={styles.shiftClient}>
+                        {shift.clientId?.name || 'Unknown Client'}
+                      </span>
+                      <span className={styles.shiftStaff}>
+                        {shift.staffId?.name || 'Unassigned'}
+                      </span>
+                    </div>
+                    <div className={styles.shiftMeta}>
+                      <span className={styles.shiftTime}>{shift.shift}</span>
+                      <span className={`${styles.shiftStatus} ${
+                        shift.computedStatus === 'Current' ? styles.statusCurrent : styles.statusPending
+                      }`}>
+                        {shift.computedStatus}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.emptyState}>
+                <Clock size={32} strokeWidth={1} />
+                <p>No active shifts today</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 2: Pending Actions */}
+        <div className={styles.overviewCard}>
+          <div className={styles.overviewHeader}>
+            <div className={styles.overviewHeaderLeft}>
+              <div className={`${styles.overviewIconWrap} ${styles.yellow}`}>
+                <AlertTriangle size={18} />
+              </div>
+              <h3 className={styles.overviewTitle}>Pending Actions</h3>
+            </div>
+          </div>
+          <div className={styles.overviewBody}>
+            <div className={styles.actionList}>
+              <button
+                className={styles.actionItem}
+                onClick={() => navigate('/supervisor/verify-notes')}
+              >
+                <div className={styles.actionLeft}>
+                  <CheckCircle size={18} />
+                  <span>Notes pending verification</span>
+                </div>
+                <div className={styles.actionRight}>
+                  <span className={styles.actionCount}>
+                    {overview?.pendingActions?.pendingNotes || 0}
+                  </span>
+                  <ChevronRight size={16} />
+                </div>
+              </button>
+              <button
+                className={styles.actionItem}
+                onClick={() => navigate('/supervisor/assign-staff')}
+              >
+                <div className={styles.actionLeft}>
+                  <Users size={18} />
+                  <span>Unassigned clients</span>
+                </div>
+                <div className={styles.actionRight}>
+                  <span className={styles.actionCount}>
+                    {overview?.pendingActions?.unassignedClients || 0}
+                  </span>
+                  <ChevronRight size={16} />
+                </div>
+              </button>
+              <div className={styles.actionItem} style={{ cursor: 'default' }}>
+                <div className={styles.actionLeft}>
+                  <Briefcase size={18} />
+                  <span>Active shifts right now</span>
+                </div>
+                <div className={styles.actionRight}>
+                  <span className={styles.actionCount}>
+                    {overview?.pendingActions?.shiftsActive || 0}
+                  </span>
+                </div>
+              </div>
+              <button
+                className={styles.actionItem}
+                onClick={() => navigate('/supervisor/notes')}
+              >
+                <div className={styles.actionLeft}>
+                  <FileText size={18} />
+                  <span>Draft notes</span>
+                </div>
+                <div className={styles.actionRight}>
+                  <span className={styles.actionCount}>
+                    {overview?.pendingActions?.draftNotes || 0}
+                  </span>
+                  <ChevronRight size={16} />
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Recent Activity Feed */}
+        <div className={styles.overviewCard}>
+          <div className={styles.overviewHeader}>
+            <div className={styles.overviewHeaderLeft}>
+              <div className={`${styles.overviewIconWrap} ${styles.purple}`}>
+                <Activity size={18} />
+              </div>
+              <h3 className={styles.overviewTitle}>Recent Activity</h3>
+            </div>
+          </div>
+          <div className={`${styles.overviewBody} ${styles.activityBody}`}>
+            {overview?.recentActivity?.length > 0 ? (
+              <div className={styles.activityList}>
+                {overview.recentActivity.map((activity, idx) => (
+                  <div key={idx} className={styles.activityItem}>
+                    <div className={`${styles.activityIconWrap} ${getActivityColor(activity.type)}`}>
+                      {getActivityIcon(activity.type)}
+                    </div>
+                    <div className={styles.activityContent}>
+                      <p className={styles.activityText}>
+                        {getActivityDescription(activity)}
+                      </p>
+                      <span className={styles.activityTime}>
+                        {formatTimeAgo(activity.timestamp)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={styles.emptyState}>
+                <Activity size={32} strokeWidth={1} />
+                <p>No recent activity</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 4: Staff Availability */}
+        <div className={styles.overviewCard}>
+          <div className={styles.overviewHeader}>
+            <div className={styles.overviewHeaderLeft}>
+              <div className={`${styles.overviewIconWrap} ${styles.green}`}>
+                <Users size={18} />
+              </div>
+              <h3 className={styles.overviewTitle}>Staff Availability</h3>
+            </div>
+          </div>
+          <div className={styles.overviewBody}>
+            <div className={styles.availabilityStats}>
+              <div className={styles.availabilityStat}>
+                <div className={`${styles.availabilityIcon} ${styles.availabilityTotal}`}>
+                  <Users size={20} />
+                </div>
+                <div className={styles.availabilityInfo}>
+                  <span className={styles.availabilityValue}>
+                    {overview?.staffAvailability?.total || 0}
+                  </span>
+                  <span className={styles.availabilityLabel}>Total Staff</span>
+                </div>
+              </div>
+              <div className={styles.availabilityStat}>
+                <div className={`${styles.availabilityIcon} ${styles.availabilityOnShift}`}>
+                  <UserCheck size={20} />
+                </div>
+                <div className={styles.availabilityInfo}>
+                  <span className={styles.availabilityValue}>
+                    {overview?.staffAvailability?.onShift || 0}
+                  </span>
+                  <span className={styles.availabilityLabel}>On Shift</span>
+                </div>
+              </div>
+              <div className={styles.availabilityStat}>
+                <div className={`${styles.availabilityIcon} ${styles.availabilityFree}`}>
+                  <UserX size={20} />
+                </div>
+                <div className={styles.availabilityInfo}>
+                  <span className={styles.availabilityValue}>
+                    {overview?.staffAvailability?.available || 0}
+                  </span>
+                  <span className={styles.availabilityLabel}>Available</span>
+                </div>
+              </div>
+            </div>
+            {overview?.staffAvailability?.total > 0 && (
+              <div className={styles.availabilityBarWrap}>
+                <div className={styles.availabilityBar}>
+                  <div
+                    className={styles.availabilityBarFill}
+                    style={{
+                      width: `${(overview.staffAvailability.onShift / overview.staffAvailability.total) * 100}%`
+                    }}
+                  />
+                </div>
+                <div className={styles.availabilityBarLabels}>
+                  <span>On Shift ({overview.staffAvailability.onShift})</span>
+                  <span>Available ({overview.staffAvailability.available})</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </DashboardLayout>
+  );
 };
 
 export default Supervisordashboard;
