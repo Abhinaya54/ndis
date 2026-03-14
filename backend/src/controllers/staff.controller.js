@@ -1144,52 +1144,31 @@ exports.lockAndSendNotes = async (req, res) => {
       });
     }
 
-    // ALWAYS check if incident report was filed, regardless of keywords
+    // Check if an incident report is already included in the consolidated notes
     if (!incidentConfirmed) {
-      const { analyzeNoteContent } = require('../utils/noteAnalyzer');
+      const hasIncidentNote = consolidatedNotes.some(note =>
+        /^incident$/i.test(note.category) ||
+        (note.content && note.content.startsWith('[Incident Report]'))
+      );
 
-      // Check if formal incident report was filed via Incident button
-      const incidentNote = await Note.findOne({
-        clientId: clientId,
-        staffId: req.user.id,
-        category: { $regex: /^incident$/i }, // Case-insensitive match
-        shiftDate: consolidatedNotes[0].shiftDate,
-        shift: consolidatedNotes[0].shift
-      });
+      console.log('🔍 Checking for incident report in consolidated notes...');
+      console.log('📋 Incident report included:', hasIncidentNote);
 
-      console.log('🔍 Checking for incident report...');
-      console.log('📋 Formal incident report exists:', !!incidentNote);
-
-      // If no incident report filed, ALWAYS ask for confirmation
-      if (!incidentNote) {
-        // Analyze for keywords to show in modal (optional info)
-        let incidentKeywords = [];
-        let incidentSeverity = 'Unknown';
-
-        for (const note of consolidatedNotes) {
-          const analysis = analyzeNoteContent(note.content);
-          if (analysis.keywords_found.length > 0) {
-            incidentKeywords = analysis.keywords_found;
-            incidentSeverity = analysis.sentiment;
-            break;
-          }
-        }
-
+      if (!hasIncidentNote) {
         console.log('⚠️ No incident report found - requesting confirmation');
-
         return res.status(400).json({
           success: false,
           message: 'Please confirm incident status',
           incident_detected: true,
           incident_details: {
-            keywords: incidentKeywords,
-            severity: incidentSeverity,
+            keywords: [],
+            severity: 'Unknown',
             reminder: 'Please confirm whether an incident occurred during this shift. If yes, use the Incident button to file a report before locking.'
           }
         });
-      } else {
-        console.log('✅ Incident report found - allowing lock');
       }
+
+      console.log('✅ Incident report found in consolidated notes - allowing lock');
     }
 
     // Helper to convert Mongoose subdocuments to plain objects

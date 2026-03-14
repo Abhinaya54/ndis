@@ -78,7 +78,7 @@ export default function Incident() {
       await api.post(`/api/staff/clients/${clientId}/notes`, {
         content,
         noteType: 'text',
-        category: 'incident',
+        category: 'Incident',
         status: 'Review'
       });
 
