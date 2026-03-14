@@ -1074,7 +1074,7 @@ exports.confirmReviewNotes = async (req, res) => {
       {
         clientId: clientId,
         staffId: req.user.id,
-        status: 'Review',
+        status: { $in: ['Draft', 'Review'] },
         isLocked: false
       },
       {

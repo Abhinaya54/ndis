@@ -102,7 +102,7 @@ export default function VoiceNote() {
       await api.post(`/api/staff/clients/${clientId}/notes`, {
         content: transcription.trim(),
         noteType: 'voice',
-        status: 'Review'
+        status: 'Draft'
       });
 
       navigate(`/staff/clients/${clientId}/notes`);

@@ -265,9 +265,9 @@ export default function ClientNotes() {
     }
   };
 
-  // Section A: Notes in Review
+  // Section A: Draft and Review notes (waiting to be confirmed)
   const reviewNotes = notes.filter(note =>
-    note.status === 'Review' && !note.isLocked
+    (note.status === 'Draft' || note.status === 'Review') && !note.isLocked
   );
 
   // Section B: Consolidated Notes (not yet submitted)

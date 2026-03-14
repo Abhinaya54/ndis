@@ -57,7 +57,7 @@ export default function WriteNote() {
       await api.post(`/api/staff/clients/${clientId}/notes`, {
         content: noteContent.trim(),
         noteType: 'text',
-        status: 'Review'
+        status: 'Draft'
       });
 
       navigate(`/staff/clients/${clientId}/notes`);

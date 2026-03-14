@@ -35,7 +35,7 @@ export default function DailyConsolidationTimeline() {
         // Filter for Review notes (not locked)
         const reviewNotes = allNotes.filter(n => {
           if (!n.createdAt) return false;
-          return n.status === 'Review' && !n.isLocked;
+          return (n.status === 'Draft' || n.status === 'Review') && !n.isLocked;
         });
 
         reviewNotes.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
