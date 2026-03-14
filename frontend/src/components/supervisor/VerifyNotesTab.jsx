@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/api';
 
 const VerifyNotesTab = () => {
+  const navigate = useNavigate();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -150,7 +152,22 @@ const VerifyNotesTab = () => {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => navigate(`/supervisor/view-note/${note.clientId?._id}/${note._id}`)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#6366f1',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '14px'
+                  }}
+                >
+                  👁 View Full Note
+                </button>
                 <button
                   onClick={() => handleApprove(note._id)}
                   style={{
