@@ -157,19 +157,27 @@ exports.getNotes = async (req, res) => {
     const filter = {};
 
     // Handle status filter - convert to proper case
+    const statusMap = {
+      'pending': 'Pending',
+      'approved': 'Approved',
+      'rejected': 'Rejected',
+      'draft': 'Draft',
+      'consolidated': 'Consolidated',
+      'submitted': 'Submitted',
+      'review': 'Review',
+      'locked': 'Locked'
+    };
+
     if (status === 'all') {
       // Explicitly requesting all statuses - no status filter applied
       console.log('Applied filter: all statuses (no restriction)');
+    } else if (status && status.includes(',')) {
+      // Support comma-separated statuses e.g. "Pending,Submitted"
+      const statuses = status.split(',').map(s => statusMap[s.trim().toLowerCase()] || s.trim());
+      filter.status = { $in: statuses };
+      console.log('Applied multi-status filter:', statuses);
     } else if (status) {
       // Convert lowercase input to proper case for database comparison
-      const statusMap = {
-        'pending': 'Pending',
-        'approved': 'Approved',
-        'rejected': 'Rejected',
-        'draft': 'Draft',
-        'consolidated': 'Consolidated',
-        'submitted': 'Submitted'
-      };
       const properStatus = statusMap[status.toLowerCase()] || status;
       filter.status = properStatus;
       console.log('Applied status filter:', properStatus);
@@ -506,13 +514,21 @@ exports.getAssignments = async (req, res) => {
  */
 exports.createAssignment = async (req, res) => {
   try {
-    let { staffId, clientId, shift, rateType, startDate, isRecurring, recurringDays } = req.body;
+    let { staffId, clientId, shift, rateType, startDate, isRecurring, recurringDays, confirmAssignment } = req.body;
 
     // Validate required fields
     if (!staffId || !clientId || !shift || !startDate) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields: staffId, clientId, shift, startDate'
+      });
+    }
+
+    // Validate confirmation
+    if (!confirmAssignment) {
+      return res.status(400).json({
+        success: false,
+        message: 'Assignment must be confirmed before creation. Please check the confirmation checkbox.'
       });
     }
 
@@ -694,15 +710,20 @@ exports.deleteAssignment = async (req, res) => {
   try {
     const { assignmentId } = req.params;
     
+    console.log(`🔍 [deleteAssignment] User role: ${req.user?.role}, User ID: ${req.user?.id}`);
+    console.log(`🔍 [deleteAssignment] Attempting to delete assignment: ${assignmentId}`);
+    
     const assignment = await Assignment.findByIdAndDelete(assignmentId);
     
     if (!assignment) {
+      console.log(`❌ [deleteAssignment] Assignment not found: ${assignmentId}`);
       return res.status(404).json({
         success: false,
         message: 'Assignment not found'
       });
     }
     
+    console.log(`✅ [deleteAssignment] Successfully deleted assignment: ${assignmentId}`);
     res.json({
       success: true,
       message: 'Assignment deleted successfully'

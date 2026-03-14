@@ -12,7 +12,7 @@ const VerifyNotesTab = () => {
   const fetchPendingNotes = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/api/supervisor/notes?status=submitted');
+      const response = await api.get('/api/supervisor/notes?status=Pending,Submitted');
       setNotes(response.data.data || []);
     } catch (error) {
       console.error('Failed to fetch pending notes:', error);
