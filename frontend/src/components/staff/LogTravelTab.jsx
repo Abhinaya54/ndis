@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api/api';
 import { TRIP_PURPOSES, TRIP_STATUSES } from '../../constants/shifts';
 
 const LogTravelTab = ({ onStatsUpdate }) => {
+  const formRef = useRef(null);
   const [assignedClients, setAssignedClients] = useState([]);
   const [myTrips, setMyTrips] = useState([]);
   const [monthlyStats, setMonthlyStats] = useState({ totalTrips: 0, totalKm: 0, approved: 0 });
@@ -142,7 +143,7 @@ const LogTravelTab = ({ onStatsUpdate }) => {
       )}
 
       {/* Form */}
-      <form style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} onSubmit={submitTrip}>
+      <form ref={formRef} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} onSubmit={submitTrip}>
         <h3 style={{ margin: '0 0 8px 0', color: '#1a1a2e' }}>🚗 Log Travel</h3>
         <p style={{ margin: '0 0 16px 0', color: '#6b7280', fontSize: '14px' }}>
           Record odometer readings for client transport. Requires supervisor approval for NDIS billing.
@@ -380,7 +381,45 @@ const LogTravelTab = ({ onStatsUpdate }) => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {/* Recent Trips */}
         <div>
-          <h4 style={{ margin: '0 0 16px 0', color: '#1a1a2e' }}>🚗 My Recent Trips</h4>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h4 style={{ margin: 0, color: '#1a1a2e' }}>🚗 My Recent Trips</h4>
+            <button
+              type="button"
+              onClick={() => {
+                setFormData({
+                  clientId: '',
+                  tripDate: new Date().toISOString().split('T')[0],
+                  startTime: '',
+                  endTime: '',
+                  relatedShift: '',
+                  purpose: '',
+                  startOdometer: '',
+                  endOdometer: '',
+                  staffNotes: ''
+                });
+                setSelectedPurpose('');
+                formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                backgroundColor: '#7c3aed',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '20px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1
+              }}
+              title="Add new travel entry"
+            >
+              +
+            </button>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '300px', overflow: 'auto' }}>
             {myTrips.length === 0 ? (
               <p style={{ color: '#6b7280', fontSize: '13px' }}>No trips logged yet</p>

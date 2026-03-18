@@ -8,50 +8,11 @@ const { calculateDynamicStatus } = require('../utils/assignmentStatus');
 
 /**
  * Calculate assignment status based on date and shift time
+ * Uses the shared timezone-aware calculateDynamicStatus utility
  */
 const calculateAssignmentStatus = (startDate, shift) => {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const assignDay = new Date(startDate);
-  assignDay.setHours(0, 0, 0, 0);
-
-  // Parse shift time
-  const parseTimeString = (timeStr) => {
-    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return { hours: 0, minutes: 0 };
-    let hours = parseInt(match[1]);
-    const minutes = parseInt(match[2]);
-    const period = match[3].toUpperCase();
-    
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    
-    return { hours, minutes };
-  };
-
-  const [startStr, endStr] = shift.split(' - ');
-  const startTime = parseTimeString(startStr);
-  const endTime = parseTimeString(endStr);
-
-  let shiftStart = new Date(assignDay);
-  shiftStart.setHours(startTime.hours, startTime.minutes, 0, 0);
-
-  let shiftEnd = new Date(assignDay);
-  shiftEnd.setHours(endTime.hours, endTime.minutes, 0, 0);
-
-  // Handle overnight shifts
-  if (shiftEnd < shiftStart) {
-    shiftEnd.setDate(shiftEnd.getDate() + 1);
-  }
-
-  // Status logic
-  if (assignDay.getTime() === today.getTime() && now >= shiftStart && now < shiftEnd) {
-    return 'Current';
-  }
-  if (assignDay.getTime() > today.getTime() || (assignDay.getTime() === today.getTime() && now < shiftStart)) {
-    return 'Pending';
-  }
-  return 'Previous';
+  const result = calculateDynamicStatus(startDate, null, shift);
+  return result.status;
 };
 
 /**

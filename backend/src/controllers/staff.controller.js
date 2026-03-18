@@ -1533,16 +1533,26 @@ exports.getClientAssignment = async (req, res) => {
     const staffId = req.user.id;
 
     // Find active assignment for this staff-client pair
-    const assignment = await Assignment.findOne({
+    let assignment = await Assignment.findOne({
       staffId,
       clientId,
       isActive: true
     }).populate('clientId', 'name room');
 
+    // If no active assignment, find the most recent one (may be completed)
+    if (!assignment) {
+      assignment = await Assignment.findOne({
+        staffId,
+        clientId
+      })
+        .sort({ startDate: -1 })
+        .populate('clientId', 'name room');
+    }
+
     if (!assignment) {
       return res.status(404).json({
         success: false,
-        message: 'No active assignment found for this client'
+        message: 'No assignment found for this client'
       });
     }
 

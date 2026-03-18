@@ -9,7 +9,7 @@ const ViewNotesTab = () => {
   const [clients, setClients] = useState([]);
   const [staff, setStaff] = useState([]);
   const [filters, setFilters] = useState({
-    status: 'all',
+    status: 'approved',
     client: 'all',
     staff: 'all',
     shift: 'all',
@@ -20,13 +20,10 @@ const ViewNotesTab = () => {
   useEffect(() => {
     const fetchClientsAndStaff = async () => {
       try {
-        console.log('Fetching clients and staff...');
         const clientsResponse = await api.get('/api/supervisor/clients');
-        console.log('Clients response:', clientsResponse.data);
         setClients(clientsResponse.data.data || []);
-        
+
         const staffResponse = await api.get('/api/supervisor/staff');
-        console.log('Staff response:', staffResponse.data);
         setStaff(staffResponse.data.data || []);
       } catch (error) {
         console.error('Failed to fetch clients and staff:', error);
@@ -37,15 +34,11 @@ const ViewNotesTab = () => {
 
   const fetchNotes = useCallback(async () => {
     try {
-      console.log('📥 Fetching notes with filters:', JSON.stringify(filters, null, 2));
       const response = await api.get('/api/supervisor/notes', { params: filters });
-      console.log('✅ Full API Response:', response);
       const notesData = response.data.data || [];
-      console.log(`📊 Setting ${notesData.length} notes`);
-      console.log('Notes:', notesData);
       setNotes(notesData);
     } catch (error) {
-      console.error('❌ Failed to fetch notes:', error);
+      console.error('Failed to fetch notes:', error);
       setNotes([]);
     }
   }, [filters]);
@@ -69,17 +62,16 @@ const ViewNotesTab = () => {
     <div style={{ padding: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
-          <h2 style={{ margin: '0 0 4px 0' }}>View All Notes</h2>
+          <h2 style={{ margin: '0 0 4px 0' }}>View Verified Notes</h2>
           <p style={{ margin: 0, fontSize: '14px', color: '#666' }}>
-            Showing {notes.length} note{notes.length !== 1 ? 's' : ''}
+            Showing {notes.length} verified note{notes.length !== 1 ? 's' : ''}
             {filters.client !== 'all' && ` for ${clients.find(c => c._id === filters.client)?.name || 'selected client'}`}
           </p>
         </div>
         <button
           onClick={() => {
-            console.log('🔄 Resetting filters to defaults');
             setFilters({
-              status: 'all',
+              status: 'approved',
               client: 'all',
               staff: 'all',
               shift: 'all',
@@ -97,34 +89,29 @@ const ViewNotesTab = () => {
             fontWeight: '600'
           }}
         >
-          🔄 Reset Filters
+          Reset Filters
         </button>
       </div>
-      
-      {/* Filters */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '20px' }}>
-        <select 
-          value={filters.status} 
-          onChange={(e) => setFilters({...filters, status: e.target.value})}
-          style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
-        >
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
 
+      {/* Info Banner */}
+      <div style={{
+        padding: '10px 14px',
+        backgroundColor: '#eef2ff',
+        border: '1px solid #c7d2fe',
+        borderRadius: '6px',
+        marginBottom: '16px',
+        fontSize: '13px',
+        color: '#4338ca'
+      }}>
+        Only verified (approved) notes are shown here. To review and approve pending notes, go to <strong>Verify Notes</strong>.
+      </div>
+
+      {/* Filters — status is locked to approved */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
         <select
           value={filters.client}
           onChange={(e) => {
-            console.log('🔍 Client filter changed to:', e.target.value);
-            // When selecting a specific client, automatically show all their notes (all statuses)
-            const newFilters = {...filters, client: e.target.value};
-            if (e.target.value !== 'all') {
-              newFilters.status = 'all'; // Show all statuses for this client
-              console.log('✅ Auto-set status to "all" for client-specific view');
-            }
-            setFilters(newFilters);
+            setFilters({...filters, client: e.target.value});
           }}
           style={{
             padding: '8px',
@@ -141,8 +128,8 @@ const ViewNotesTab = () => {
           ))}
         </select>
 
-        <select 
-          value={filters.staff} 
+        <select
+          value={filters.staff}
           onChange={(e) => setFilters({...filters, staff: e.target.value})}
           style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
         >
@@ -158,8 +145,8 @@ const ViewNotesTab = () => {
           style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
         />
 
-        <select 
-          value={filters.dateRange} 
+        <select
+          value={filters.dateRange}
           onChange={(e) => setFilters({...filters, dateRange: e.target.value})}
           style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
         >
@@ -173,10 +160,9 @@ const ViewNotesTab = () => {
       {/* Notes List */}
       <div style={{ display: 'grid', gap: '12px' }}>
         {notes.length === 0 ? (
-          <p style={{ textAlign: 'center', color: '#999' }}>No notes found</p>
+          <p style={{ textAlign: 'center', color: '#999' }}>No verified notes found</p>
         ) : (
           notes.map(note => {
-            // Format date safely
             const formattedDate = note.shiftDate
               ? new Date(note.shiftDate).toLocaleDateString()
               : 'Unknown Date';
@@ -199,7 +185,6 @@ const ViewNotesTab = () => {
                   <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#666' }}>
                     {note.category || 'General'} • <strong>{note.shift || 'Unknown Shift'}</strong> • {formattedDate}
                   </p>
-                  {/* Show images if attachments exist, otherwise show text */}
                   {note.attachments && note.attachments.length > 0 && note.attachments.some(att => att.mimetype && att.mimetype.startsWith('image/')) ? (
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '0 0 8px 0' }}>
                       {note.attachments.filter(att => att.mimetype && att.mimetype.startsWith('image/')).slice(0, 3).map((att, i) => (
@@ -230,12 +215,10 @@ const ViewNotesTab = () => {
                   borderRadius: '20px',
                   fontSize: '12px',
                   fontWeight: '600',
-                  backgroundColor: note.status === 'Approved' ? '#dcfce7' :
-                                   note.status === 'Rejected' ? '#fee2e2' : '#fef3c7',
-                  color: note.status === 'Approved' ? '#15803d' :
-                         note.status === 'Rejected' ? '#991b1b' : '#92400e'
+                  backgroundColor: '#dcfce7',
+                  color: '#15803d'
                 }}>
-                  {note.status}
+                  Verified
                 </span>
               </div>
               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: '8px' }}>

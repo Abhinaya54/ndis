@@ -158,17 +158,33 @@ async function updateStatuses() {
 
     let updated = 0;
     for (const assignment of activeAssignments) {
-      const computed = calculateDynamicStatus(
-        assignment.startDate, assignment.endDate, assignment.shift
-      );
-      const newStatus = computed.status; // 'Current', 'Pending', or 'Previous'
-      const shouldBeActive = newStatus !== 'Previous';
+      // Skip assignments that don't have the required fields for status calculation
+      if (!assignment.startDate || !assignment.shift || !assignment.shift.includes(' - ')) {
+        continue;
+      }
 
-      if (assignment.status !== newStatus || assignment.isActive !== shouldBeActive) {
-        assignment.status = newStatus;
-        assignment.isActive = shouldBeActive;
-        await assignment.save();
-        updated++;
+      try {
+        const computed = calculateDynamicStatus(
+          assignment.startDate, assignment.endDate, assignment.shift
+        );
+        const newStatus = computed.status;
+
+        // Only update if we got a valid status (not Unknown/Error)
+        if (newStatus === 'Unknown' || newStatus === 'Error') {
+          continue;
+        }
+
+        const shouldBeActive = newStatus !== 'Previous';
+
+        if (assignment.status !== newStatus || assignment.isActive !== shouldBeActive) {
+          console.log(`[StatusUpdate] ${assignment._id}: ${assignment.status} → ${newStatus}, active: ${assignment.isActive} → ${shouldBeActive}, shift: ${assignment.shift}, date: ${assignment.startDate}`);
+          assignment.status = newStatus;
+          assignment.isActive = shouldBeActive;
+          await assignment.save();
+          updated++;
+        }
+      } catch (innerErr) {
+        console.error(`[StatusUpdate] Error processing assignment ${assignment._id}:`, innerErr.message);
       }
     }
     return { updated };

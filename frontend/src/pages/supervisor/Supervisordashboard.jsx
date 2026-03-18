@@ -11,7 +11,6 @@ import ViewNotesTab from '../../components/supervisor/ViewNotesTab';
 import VerifyNotesTab from '../../components/supervisor/VerifyNotesTab';
 import AssignStaffTab from '../../components/supervisor/AssignStaffTab';
 import UnlockNotesTab from '../../components/supervisor/UnlockNotesTab';
-import TravelLogTab from '../../components/supervisor/TravelLogTab';
 import ShiftHistoryTab from '../../components/supervisor/ShiftHistoryTab';
 import ClientsPage from './ClientsPage';
 import ClientDetailPage from './ClientDetailPage';
@@ -23,7 +22,6 @@ const pageConfig = {
   '/supervisor/verify-notes': { title: 'Verify Notes', subtitle: 'Approve pending notes', component: 'verify-notes' },
   '/supervisor/assign-staff': { title: 'Assign Staff', subtitle: 'Staff assignments', component: 'assign-staff' },
   '/supervisor/unlock-notes': { title: 'Unlock Notes', subtitle: 'Edit locked notes', component: 'unlock-notes' },
-  '/supervisor/travel': { title: 'Travel Logs', subtitle: 'Travel records', component: 'travel-log' },
   '/supervisor/shift-history': { title: 'Shift History', subtitle: 'Completed shift records', component: 'shift-history' },
 };
 
@@ -169,7 +167,6 @@ const Supervisordashboard = () => {
           {currentPage.component === 'verify-notes' && <VerifyNotesTab />}
           {currentPage.component === 'assign-staff' && <AssignStaffTab />}
           {currentPage.component === 'unlock-notes' && <UnlockNotesTab />}
-          {currentPage.component === 'travel-log' && <TravelLogTab />}
           {currentPage.component === 'shift-history' && <ShiftHistoryTab />}
         </motion.div>
       </DashboardLayout>
