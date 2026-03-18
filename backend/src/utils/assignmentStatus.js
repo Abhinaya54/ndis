@@ -62,16 +62,11 @@ const parseTimeString = (timeStr) => {
 
 /**
  * Calculate assignment status dynamically based on date and shift time
+ * Uses configured timezone for all date comparisons to avoid mismatches
  */
 // eslint-disable-next-line no-unused-vars
 const calculateDynamicStatus = (startDate, _endDate, shift) => {
   try {
-    const now = getConfiguredTime();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    const assignDay = new Date(startDate);
-    assignDay.setHours(0, 0, 0, 0);
-
     if (!shift || !shift.includes(' - ')) {
       return {
         status: 'Unknown',
@@ -81,24 +76,63 @@ const calculateDynamicStatus = (startDate, _endDate, shift) => {
       };
     }
 
+    const now = getConfiguredTime();
+    const nowYear = now.getFullYear();
+    const nowMonth = now.getMonth();
+    const nowDate = now.getDate();
+
+    // Normalize assignment date to the configured timezone
+    const rawAssignDate = new Date(startDate);
+    const timezone = process.env.TIMEZONE || 'Asia/Kolkata';
+    let assignYear, assignMonth, assignDate;
+    try {
+      // Extract year/month/day in the configured timezone
+      const parts = rawAssignDate.toLocaleDateString('en-CA', { timeZone: timezone }).split('-');
+      assignYear = parseInt(parts[0]);
+      assignMonth = parseInt(parts[1]) - 1;
+      assignDate = parseInt(parts[2]);
+    } catch (e) {
+      // Fallback: use local date fields
+      assignYear = rawAssignDate.getFullYear();
+      assignMonth = rawAssignDate.getMonth();
+      assignDate = rawAssignDate.getDate();
+    }
+
+    // Compare dates using year/month/day numbers (no timezone ambiguity)
+    const isToday = assignYear === nowYear && assignMonth === nowMonth && assignDate === nowDate;
+    const assignDayValue = assignYear * 10000 + assignMonth * 100 + assignDate;
+    const todayValue = nowYear * 10000 + nowMonth * 100 + nowDate;
+    const isFuture = assignDayValue > todayValue;
+    const isPast = assignDayValue < todayValue;
+
     const [startStr, endStr] = shift.split(' - ');
     const startTime = parseTimeString(startStr);
     const endTime = parseTimeString(endStr);
 
-    let shiftStart = new Date(assignDay);
-    shiftStart.setHours(startTime.hours, startTime.minutes, 0, 0);
-
-    let shiftEnd = new Date(assignDay);
-    shiftEnd.setHours(endTime.hours, endTime.minutes, 0, 0);
+    // Calculate shift start/end as minutes since midnight for comparison
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const shiftStartMinutes = startTime.hours * 60 + startTime.minutes;
+    let shiftEndMinutes = endTime.hours * 60 + endTime.minutes;
 
     // Handle overnight shifts (e.g., 10:00 PM - 6:00 AM)
-    if (shiftEnd < shiftStart) {
-      shiftEnd.setDate(shiftEnd.getDate() + 1);
-    }
+    const isOvernight = shiftEndMinutes <= shiftStartMinutes;
 
     // Current: Today AND within shift times
-    if (assignDay.getTime() === today.getTime() && now >= shiftStart && now < shiftEnd) {
-      const hoursRemaining = Math.ceil((shiftEnd - now) / (1000 * 60 * 60));
+    let isCurrent = false;
+    if (isToday) {
+      if (isOvernight) {
+        // Overnight shift: current if after start OR before end
+        isCurrent = nowMinutes >= shiftStartMinutes || nowMinutes < shiftEndMinutes;
+      } else {
+        isCurrent = nowMinutes >= shiftStartMinutes && nowMinutes < shiftEndMinutes;
+      }
+    }
+
+    if (isCurrent) {
+      const remainMinutes = isOvernight
+        ? (nowMinutes >= shiftStartMinutes ? (1440 - nowMinutes + shiftEndMinutes) : (shiftEndMinutes - nowMinutes))
+        : (shiftEndMinutes - nowMinutes);
+      const hoursRemaining = Math.ceil(remainMinutes / 60);
       return {
         status: 'Current',
         badge: 'IN PROGRESS',
@@ -109,9 +143,12 @@ const calculateDynamicStatus = (startDate, _endDate, shift) => {
     }
 
     // Upcoming: Future date OR today before shift starts
-    if (assignDay.getTime() > today.getTime() || (assignDay.getTime() === today.getTime() && now < shiftStart)) {
-      const daysUntil = Math.floor((assignDay - today) / (1000 * 60 * 60 * 24));
-      const hoursUntil = Math.ceil((shiftStart - now) / (1000 * 60 * 60));
+    const isBeforeShift = isToday && nowMinutes < shiftStartMinutes;
+    if (isFuture || isBeforeShift) {
+      const daysUntil = isFuture
+        ? Math.round((new Date(assignYear, assignMonth, assignDate) - new Date(nowYear, nowMonth, nowDate)) / (1000 * 60 * 60 * 24))
+        : 0;
+      const hoursUntil = isBeforeShift ? Math.ceil((shiftStartMinutes - nowMinutes) / 60) : daysUntil * 24;
 
       let badge;
       if (daysUntil === 0) {
@@ -132,7 +169,9 @@ const calculateDynamicStatus = (startDate, _endDate, shift) => {
     }
 
     // Previous: Past date OR today after shift ended
-    const daysSince = Math.floor((today - assignDay) / (1000 * 60 * 60 * 24));
+    const daysSince = isPast
+      ? Math.round((new Date(nowYear, nowMonth, nowDate) - new Date(assignYear, assignMonth, assignDate)) / (1000 * 60 * 60 * 24))
+      : 0;
     let badge;
 
     if (daysSince === 0) {

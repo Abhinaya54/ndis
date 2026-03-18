@@ -54,7 +54,6 @@ const Sidebar = () => {
         { path: '/supervisor/verify-notes', icon: CheckSquare, label: 'Verify Notes', description: 'Approve pending' },
         { path: '/supervisor/assign-staff', icon: UserPlus, label: 'Assign Staff', description: 'Staff assignments' },
         { path: '/supervisor/unlock-notes', icon: Unlock, label: 'Unlock Notes', description: 'Edit locked notes' },
-        { path: '/supervisor/travel', icon: Car, label: 'Travel Logs', description: 'Travel records' },
         { path: '/supervisor/shift-history', icon: History, label: 'Shift History', description: 'Completed shifts' },
       ];
     }

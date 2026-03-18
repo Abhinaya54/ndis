@@ -1,97 +1,113 @@
 /**
  * Get current time in configured timezone (India Standard Time)
  */
+const TIMEZONE = process.env.REACT_APP_TIMEZONE || 'Asia/Kolkata';
+
 const getConfiguredTime = () => {
-  const timezone = process.env.REACT_APP_TIMEZONE || 'Asia/Kolkata';
-  
   try {
     const utcDate = new Date();
-    const timeString = utcDate.toLocaleString('en-US', { 
-      timeZone: timezone 
-    });
+    const timeString = utcDate.toLocaleString('en-US', { timeZone: TIMEZONE });
     const configDate = new Date(timeString);
     return configDate;
   } catch (e) {
-    // Fallback if timezone is invalid
-    console.warn(`Invalid timezone: ${timezone}, falling back to local time`);
+    console.warn(`Invalid timezone: ${TIMEZONE}, falling back to local time`);
     return new Date();
   }
 };
 
 /**
- * Get assignment status based on DATE + SHIFT TIME
- * 
- * Rules:
- * - Current: Today AND current time is between shift start and end
- * - Pending: Future date OR today but shift hasn't started yet
- * - Previous: Past date OR shift has already ended
- * 
- * Returns: { status: 'Current' | 'Pending' | 'Previous', badge: string, color: object }
+ * Extract year/month/day from a date in the configured timezone
+ * Avoids setHours(0,0,0,0) which can mismatch across timezones
  */
+const getDateParts = (date) => {
+  try {
+    const parts = new Date(date).toLocaleDateString('en-CA', { timeZone: TIMEZONE }).split('-');
+    return { year: parseInt(parts[0]), month: parseInt(parts[1]) - 1, day: parseInt(parts[2]) };
+  } catch (e) {
+    const d = new Date(date);
+    return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate() };
+  }
+};
 
+/**
+ * Get assignment status based on DATE + SHIFT TIME
+ * Uses IST (Asia/Kolkata) for all comparisons
+ */
 export const getAssignmentDateStatus = (assignmentDate, shiftTime) => {
   if (!assignmentDate || !shiftTime) {
     return { status: 'Unknown', badge: '❓ UNKNOWN', color: { bg: '#f3f4f6', border: '#9ca3af', text: '#6b7280' } };
   }
 
   const now = getConfiguredTime();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
-  const assignDay = new Date(assignmentDate);
-  assignDay.setHours(0, 0, 0, 0);
+  const nowParts = { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() };
+  const assignParts = getDateParts(assignmentDate);
+
+  // Compare dates using numeric values (timezone-safe)
+  const todayVal = nowParts.year * 10000 + nowParts.month * 100 + nowParts.day;
+  const assignVal = assignParts.year * 10000 + assignParts.month * 100 + assignParts.day;
+  const isToday = assignVal === todayVal;
+  const isFuture = assignVal > todayVal;
+  const isPast = assignVal < todayVal;
 
   // Parse shift time (e.g., "6:00 AM - 2:00 PM")
   const [startStr, endStr] = shiftTime.split(' - ');
   const startTime = parseTimeString(startStr);
   const endTime = parseTimeString(endStr);
 
-  // Create shift start and end times
-  let shiftStart = new Date(assignDay);
-  shiftStart.setHours(startTime.hours, startTime.minutes, 0, 0);
+  // Compare using minutes since midnight
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const shiftStartMinutes = startTime.hours * 60 + startTime.minutes;
+  const shiftEndMinutes = endTime.hours * 60 + endTime.minutes;
+  const isOvernight = shiftEndMinutes <= shiftStartMinutes;
 
-  let shiftEnd = new Date(assignDay);
-  shiftEnd.setHours(endTime.hours, endTime.minutes, 0, 0);
-
-  // Handle overnight shifts (e.g., 10:00 PM - 6:00 AM)
-  if (shiftEnd < shiftStart) {
-    shiftEnd.setDate(shiftEnd.getDate() + 1);
+  // 1. CHECK IF CURRENT (today AND within shift time)
+  let isCurrent = false;
+  if (isToday) {
+    if (isOvernight) {
+      isCurrent = nowMinutes >= shiftStartMinutes || nowMinutes < shiftEndMinutes;
+    } else {
+      isCurrent = nowMinutes >= shiftStartMinutes && nowMinutes < shiftEndMinutes;
+    }
   }
 
-  // 1️⃣ CHECK IF CURRENT (today AND within shift time)
-  if (assignDay.getTime() === today.getTime() && now >= shiftStart && now < shiftEnd) {
-    return { 
-      status: 'Current', 
+  if (isCurrent) {
+    return {
+      status: 'Current',
       badge: '✅ CURRENT',
       color: { bg: '#ecfdf5', border: '#10b981', text: '#047857' }
     };
   }
 
-  // 2️⃣ CHECK IF PENDING (future OR today but before shift starts)
-  if (assignDay.getTime() > today.getTime() || (assignDay.getTime() === today.getTime() && now < shiftStart)) {
-    const daysUntil = Math.ceil((assignDay - today) / (1000 * 60 * 60 * 24));
+  // 2. CHECK IF PENDING (future OR today before shift starts)
+  const isBeforeShift = isToday && nowMinutes < shiftStartMinutes;
+  if (isFuture || isBeforeShift) {
+    const daysUntil = isFuture
+      ? Math.round((new Date(assignParts.year, assignParts.month, assignParts.day) - new Date(nowParts.year, nowParts.month, nowParts.day)) / (1000 * 60 * 60 * 24))
+      : 0;
     if (daysUntil === 0) {
-      // Today but shift hasn't started
-      const minutesUntil = Math.ceil((shiftStart - now) / (1000 * 60));
+      const minutesUntil = shiftStartMinutes - nowMinutes;
       const hoursStr = Math.round((minutesUntil / 60) * 10) / 10;
-      return { 
-        status: 'Pending', 
+      return {
+        status: 'Pending',
         badge: `⏳ IN ${hoursStr}H`,
         color: { bg: '#eff6ff', border: '#3b82f6', text: '#1e40af' }
       };
     } else {
-      return { 
-        status: 'Pending', 
+      return {
+        status: 'Pending',
         badge: `⏳ IN ${daysUntil}D`,
         color: { bg: '#eff6ff', border: '#3b82f6', text: '#1e40af' }
       };
     }
   }
 
-  // 3️⃣ DEFAULT TO PREVIOUS (past date OR shift has ended)
-  const daysSince = Math.ceil((today - assignDay) / (1000 * 60 * 60 * 24));
-  return { 
-    status: 'Previous', 
-    badge: `🕒 ${daysSince}D AGO`,
+  // 3. DEFAULT TO PREVIOUS (past date OR shift ended)
+  const daysSince = isPast
+    ? Math.round((new Date(nowParts.year, nowParts.month, nowParts.day) - new Date(assignParts.year, assignParts.month, assignParts.day)) / (1000 * 60 * 60 * 24))
+    : 0;
+  return {
+    status: 'Previous',
+    badge: `🕒 ${daysSince === 0 ? 'ENDED' : daysSince + 'D AGO'}`,
     color: { bg: '#f3f4f6', border: '#9ca3af', text: '#6b7280' }
   };
 };
@@ -125,46 +141,56 @@ export const getShiftStatus = (shiftTime, shiftDate) => {
   }
 
   const now = getConfiguredTime();
-  const shiftDay = new Date(shiftDate);
-  shiftDay.setHours(0, 0, 0, 0);
+  const nowParts = { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() };
+  const shiftParts = getDateParts(shiftDate);
 
-  // Parse shift time (e.g., "6:00 AM - 2:00 PM")
+  const todayVal = nowParts.year * 10000 + nowParts.month * 100 + nowParts.day;
+  const shiftVal = shiftParts.year * 10000 + shiftParts.month * 100 + shiftParts.day;
+  const isToday = shiftVal === todayVal;
+  const isPast = shiftVal < todayVal;
+
   const [startStr, endStr] = shiftTime.split(' - ');
   const startTime = parseTimeString(startStr);
   const endTime = parseTimeString(endStr);
 
-  // Handle overnight shifts (e.g., 10:00 PM - 6:00 AM)
-  let shiftStart = new Date(shiftDay);
-  shiftStart.setHours(startTime.hours, startTime.minutes, 0, 0);
-
-  let shiftEnd = new Date(shiftDay);
-  shiftEnd.setHours(endTime.hours, endTime.minutes, 0, 0);
-
-  // If end time is earlier than start time, it's an overnight shift
-  if (shiftEnd < shiftStart) {
-    shiftEnd.setDate(shiftEnd.getDate() + 1);
-  }
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const shiftStartMinutes = startTime.hours * 60 + startTime.minutes;
+  const shiftEndMinutes = endTime.hours * 60 + endTime.minutes;
+  const isOvernight = shiftEndMinutes <= shiftStartMinutes;
 
   // Check if shift is happening now
-  if (now >= shiftStart && now < shiftEnd) {
-    return { status: 'Active', color: '#10b981', icon: '🟢', badge: '● ACTIVE' };
+  if (isToday) {
+    let isActive = false;
+    if (isOvernight) {
+      isActive = nowMinutes >= shiftStartMinutes || nowMinutes < shiftEndMinutes;
+    } else {
+      isActive = nowMinutes >= shiftStartMinutes && nowMinutes < shiftEndMinutes;
+    }
+    if (isActive) {
+      return { status: 'Active', color: '#10b981', icon: '🟢', badge: '● ACTIVE' };
+    }
+    // Today but shift ended
+    if (nowMinutes >= shiftEndMinutes && !isOvernight) {
+      return { status: 'Completed', color: '#6b7280', icon: '✓', badge: '✓ COMPLETED' };
+    }
   }
 
-  // Check if shift has completed
-  if (now >= shiftEnd) {
+  // Past date
+  if (isPast) {
     return { status: 'Completed', color: '#6b7280', icon: '✓', badge: '✓ COMPLETED' };
   }
 
-  // Check if shift is upcoming (within 24 hours)
-  const hoursUntilShift = (shiftStart - now) / (1000 * 60 * 60);
+  // Upcoming
+  const minutesUntil = isToday ? (shiftStartMinutes - nowMinutes) : null;
+  const hoursUntilShift = minutesUntil ? minutesUntil / 60 : 24;
   if (hoursUntilShift <= 24) {
     const hoursStr = Math.round(hoursUntilShift * 10) / 10;
-    return { 
-      status: 'Upcoming', 
-      color: '#f59e0b', 
-      icon: '⏱️', 
+    return {
+      status: 'Upcoming',
+      color: '#f59e0b',
+      icon: '⏱️',
       badge: `↑ IN ${hoursStr}H`,
-      hours: hoursStr 
+      hours: hoursStr
     };
   }
 
@@ -213,11 +239,12 @@ export const formatDateForDisplay = (date) => {
 
   const d = new Date(date);
   const now = getConfiguredTime();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dateDay = new Date(d);
-  dateDay.setHours(0, 0, 0, 0);
+  const nowParts = { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() };
+  const dateParts = getDateParts(date);
 
-  const diffDays = Math.floor((dateDay - today) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round(
+    (new Date(dateParts.year, dateParts.month, dateParts.day) - new Date(nowParts.year, nowParts.month, nowParts.day)) / (1000 * 60 * 60 * 24)
+  );
 
   let relative;
   if (diffDays === 0) {

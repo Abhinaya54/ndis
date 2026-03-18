@@ -37,6 +37,9 @@ exports.getShiftHistory = async (req, res) => {
       } else if (dateRange === 'month') {
         filter.startDate.$gte = new Date(Date.UTC(year, month - 1, date));
         filter.startDate.$lt = endOfDay;
+      } else if (dateRange === '3months') {
+        filter.startDate.$gte = new Date(Date.UTC(year, month - 3, date));
+        filter.startDate.$lt = endOfDay;
       } else if (dateRange === 'year') {
         filter.startDate.$gte = new Date(Date.UTC(year - 1, month, date));
         filter.startDate.$lt = endOfDay;

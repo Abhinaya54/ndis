@@ -15,6 +15,7 @@ import Appointment from "./pages/staff/Appointment";
 import Incident from "./pages/staff/Incident";
 import Shifts from "./pages/staff/Shifts";
 import ShiftHistory from "./pages/staff/ShiftHistory";
+import TravelLog from "./pages/staff/TravelLog";
 import StaffAppointments from "./pages/staff/StaffAppointments";
 import ClientAppointmentsView from "./pages/staff/ClientAppointmentsView";
 import SupervisorHome from "./pages/supervisor/Supervisordashboard";
@@ -117,6 +118,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Shifts />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/staff/travel-log"
+              element={
+                <ProtectedRoute>
+                  <TravelLog />
                 </ProtectedRoute>
               }
             />

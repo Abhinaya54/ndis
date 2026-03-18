@@ -48,25 +48,11 @@ export default function Staffdashboard() {
       const shiftsData = shiftsRes.data?.data || {};
       const assignments = shiftsData.assignments || [];
 
-      // Filter for today's schedule
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const endOfToday = new Date(today);
-      endOfToday.setHours(23, 59, 59, 999);
-
+      // Filter for today's schedule - use backend computedStatus instead of date filtering
       const todayAssignments = assignments.filter(assignment => {
-        if (!assignment.isActive) return false;
-        const startDate = new Date(assignment.startDate);
-        startDate.setHours(0, 0, 0, 0);
-
-        // Check if assignment includes today
-        let endDate = assignment.endDate ? new Date(assignment.endDate) : new Date(startDate);
-        if (!assignment.endDate) {
-          endDate.setMonth(endDate.getMonth() + 1);
-        }
-        endDate.setHours(23, 59, 59, 999);
-
-        return startDate <= endOfToday && endDate >= today;
+        // Trust backend computedStatus - it already accounts for timezone
+        const status = assignment.computedStatus || '';
+        return status === 'Current' || status === 'Pending';
       });
 
       // Create schedule items from today's assignments using shared utility

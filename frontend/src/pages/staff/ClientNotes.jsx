@@ -27,6 +27,7 @@ export default function ClientNotes() {
   const [endOdometer, setEndOdometer] = useState('');
   const [savingOdometer, setSavingOdometer] = useState(false);
   const [odometerSaved, setOdometerSaved] = useState(false);
+  const [travelEntries, setTravelEntries] = useState([]);
 
   const fetchData = useCallback(async (showLoading = true) => {
     if (!clientId || !user?.id) return;
@@ -149,7 +150,16 @@ export default function ClientNotes() {
     setUploading(false);
   };
 
+  const hasIncident = notes.some(note => note.category === 'Incident');
+
   const handleLockAndSend = async () => {
+    // Block if no incident has been reported
+    if (!hasIncident) {
+      alert('You must add at least one incident report before sending notes to the supervisor.');
+      navigate(`/staff/clients/${clientId}/incident`);
+      return;
+    }
+
     if (!window.confirm('Lock all consolidated notes and send to supervisor? This cannot be undone.')) return;
 
     setLockingSending(true);
@@ -303,7 +313,33 @@ export default function ClientNotes() {
                 <Check size={12} /> Saved
               </span>
             )}
+            <button
+              onClick={() => {
+                setTravelEntries(prev => [...prev, { start: '', end: '' }]);
+              }}
+              style={{
+                marginLeft: 'auto',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                backgroundColor: '#0891b2',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '18px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                lineHeight: 1
+              }}
+              title="Add new travel entry"
+            >
+              +
+            </button>
           </div>
+
+          {/* Main odometer entry */}
           <div className={styles.odometerRow}>
             <div className={styles.odometerField}>
               <label>Start Odometer (km)</label>
@@ -335,6 +371,68 @@ export default function ClientNotes() {
               Total Distance: <strong>{calculatedDistance} km</strong>
             </div>
           )}
+
+          {/* Additional travel entries */}
+          {travelEntries.map((entry, index) => {
+            const dist = entry.start && entry.end && parseFloat(entry.end) > parseFloat(entry.start)
+              ? (parseFloat(entry.end) - parseFloat(entry.start)).toFixed(1)
+              : null;
+            return (
+              <div key={index} style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #b2ebf2' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#0891b2' }}>Trip {index + 2}</span>
+                  <button
+                    onClick={() => setTravelEntries(prev => prev.filter((_, i) => i !== index))}
+                    style={{
+                      background: 'none', border: 'none', color: '#ef4444',
+                      cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: '2px 6px'
+                    }}
+                    title="Remove this entry"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className={styles.odometerRow}>
+                  <div className={styles.odometerField}>
+                    <label>Start Odometer (km)</label>
+                    <input
+                      type="number"
+                      className={styles.odometerInput}
+                      placeholder="e.g. 45032"
+                      value={entry.start}
+                      onChange={(e) => {
+                        setTravelEntries(prev => prev.map((en, i) => i === index ? { ...en, start: e.target.value } : en));
+                        setOdometerSaved(false);
+                      }}
+                      min="0"
+                      step="0.1"
+                    />
+                  </div>
+                  <div className={styles.odometerField}>
+                    <label>End Odometer (km)</label>
+                    <input
+                      type="number"
+                      className={styles.odometerInput}
+                      placeholder="e.g. 45060"
+                      value={entry.end}
+                      onChange={(e) => {
+                        setTravelEntries(prev => prev.map((en, i) => i === index ? { ...en, end: e.target.value } : en));
+                        setOdometerSaved(false);
+                      }}
+                      min="0"
+                      step="0.1"
+                    />
+                  </div>
+                </div>
+                {dist && (
+                  <div className={styles.odometerDistance}>
+                    Distance: <strong>{dist} km</strong>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
           <div className={styles.odometerActions}>
             <button
               className={styles.odometerSaveBtn}
@@ -604,6 +702,41 @@ export default function ClientNotes() {
               {lockingSending ? 'Sending...' : 'Confirm, Lock & Send to Supervisor'}
             </motion.button>
           </div>
+
+          {/* Incident required banner */}
+          {!hasIncident && (
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fca5a5',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginBottom: '12px'
+            }}>
+              <AlertTriangle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
+              <span style={{ fontSize: '14px', color: '#991b1b', flex: 1 }}>
+                At least one incident report is required before sending notes to the supervisor.
+              </span>
+              <button
+                onClick={() => navigate(`/staff/clients/${clientId}/incident`)}
+                style={{
+                  padding: '6px 14px',
+                  backgroundColor: '#dc2626',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Add Incident
+              </button>
+            </div>
+          )}
 
           {/* Continuous document view */}
           <div className={styles.consolidatedDocument}>
