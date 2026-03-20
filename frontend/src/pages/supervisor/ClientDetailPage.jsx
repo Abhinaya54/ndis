@@ -85,7 +85,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
 
   const handleDownloadSummary = async () => {
     try {
-      const baseURL = 'http://localhost:5000';
+      const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
       const response = await fetch(`${baseURL}/api/clients/${clientId}/summary-report`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -518,7 +518,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
                             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                               {entry.attachments.map((att, i) => {
                                 const isImage = att.mimetype && att.mimetype.startsWith('image/');
-                                const fileUrl = `http://localhost:5000/${att.path}`;
+                                const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
 
                                 return isImage ? (
                                   <div key={i} style={{

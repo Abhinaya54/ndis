@@ -255,7 +255,7 @@ export default function DailyConsolidationTimeline() {
                         <div className={styles.attachmentsDisplay}>
                           {note.attachments.map((att, i) => {
                             const isImage = att.mimetype && att.mimetype.startsWith('image/');
-                            const fileUrl = `http://localhost:5000/${att.path}`;
+                            const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
 
                             return isImage ? (
                               <div key={att._id || i} className={styles.imageAttachment}>

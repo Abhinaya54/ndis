@@ -84,7 +84,7 @@ const VerifyNotesTab = () => {
                     {note.attachments.filter(att => att.mimetype && att.mimetype.startsWith('image/')).slice(0, 2).map((att, i) => (
                       <img
                         key={i}
-                        src={`http://localhost:5000/${att.path}`}
+                        src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`}
                         alt={att.originalName}
                         style={{
                           width: '100px',

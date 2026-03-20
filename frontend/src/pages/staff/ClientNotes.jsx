@@ -653,7 +653,7 @@ export default function ClientNotes() {
                 {note.noteType === 'file' && note.attachments && note.attachments.length > 0 ? (
                   <div className={styles.pendingNoteImages}>
                     {note.attachments.filter(att => att.mimetype && att.mimetype.startsWith('image/')).map((att, i) => {
-                      const fileUrl = `http://localhost:5000/${att.path}`;
+                      const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
                       return (
                         <div key={att._id || i} className={styles.pendingImageThumb}>
                           <img src={fileUrl} alt={att.originalName} />
@@ -764,7 +764,7 @@ export default function ClientNotes() {
                   <div className={styles.entryAttachments}>
                     {note.attachments.map((att, i) => {
                       const isImage = att.mimetype && att.mimetype.startsWith('image/');
-                      const fileUrl = `http://localhost:5000/${att.path}`;
+                      const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
 
                       return isImage ? (
                         <div key={att._id || i} className={styles.attachmentImage}>
@@ -867,7 +867,7 @@ export default function ClientNotes() {
                         <div className={styles.entryAttachments}>
                           {entry.attachments.map((att, i) => {
                             const isImage = att.mimetype && att.mimetype.startsWith('image/');
-                            const fileUrl = `http://localhost:5000/${att.path}`;
+                            const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
 
                             return isImage ? (
                               <div key={att._id || i} className={styles.attachmentImage}>
