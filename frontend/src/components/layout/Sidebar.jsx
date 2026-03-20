@@ -12,12 +12,9 @@ import {
   CheckSquare,
   Unlock,
   UserPlus,
-  Car,
-  ClipboardList,
   Clock,
   ChevronRight,
-  History,
-  Calendar
+  History
 } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 import styles from './Sidebar.module.css';

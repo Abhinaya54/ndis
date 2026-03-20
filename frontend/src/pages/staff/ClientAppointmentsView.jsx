@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, User, MapPin, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, FileText, CheckCircle } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api/api';
 
@@ -11,11 +11,6 @@ const ClientAppointmentsView = () => {
   const [appointments, setAppointments] = useState([]);
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchClientAppointments();
-    fetchClientInfo();
-  }, [clientId]);
 
   const fetchClientInfo = async () => {
     try {
@@ -55,6 +50,12 @@ const ClientAppointmentsView = () => {
       console.error('Failed to complete appointment:', err);
     }
   };
+
+  useEffect(() => {
+    fetchClientAppointments();
+    fetchClientInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   const getStatusColor = (status) => {
     switch (status) {

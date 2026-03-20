@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Users, Clock, Calendar, FileText, CheckCircle, Activity,
-  ArrowRight, Bell, Mic
+  ArrowRight, Mic
 } from 'lucide-react';
 import api from '../../api/api';
 import { AuthContext } from '../../context/AuthContext';

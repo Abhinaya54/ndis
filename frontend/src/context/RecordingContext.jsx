@@ -14,7 +14,6 @@ export const RecordingProvider = ({ children }) => {
   // Refs for MediaRecorder and stream
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
-  const audioContextRef = useRef(null);
   const chunksRef = useRef([]);
   
   // Speech Recognition
@@ -41,7 +40,6 @@ export const RecordingProvider = ({ children }) => {
     };
 
     recognition.onresult = (event) => {
-      let interimTranscript = '';
       let finalTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
