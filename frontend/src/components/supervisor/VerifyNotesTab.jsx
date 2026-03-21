@@ -71,7 +71,7 @@ const VerifyNotesTab = () => {
                   {note.clientId?.name || note.clientName || 'Unknown Client'}
                 </p>
                 <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#666' }}>
-                  {note.category || 'General'} • {note.shift || 'Unknown Shift'} • {new Date(note.shiftDate).toLocaleDateString()}
+                  {note.category || 'General'} • {note.shift || 'Unknown Shift'} • {new Date(note.shiftDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' })}
                   {note.entries && note.entries.length > 0 && (
                     <span style={{ marginLeft: '8px', padding: '1px 8px', background: '#e0e7ff', color: '#4338ca', borderRadius: '10px', fontSize: '11px', fontWeight: '600' }}>
                       {note.entries.length} {note.entries.length === 1 ? 'entry' : 'entries'}
@@ -84,7 +84,7 @@ const VerifyNotesTab = () => {
                     {note.attachments.filter(att => att.mimetype && att.mimetype.startsWith('image/')).slice(0, 2).map((att, i) => (
                       <img
                         key={i}
-                        src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`}
+                        src={`http://localhost:5000/${att.path}`}
                         alt={att.originalName}
                         style={{
                           width: '100px',

@@ -70,7 +70,7 @@ export default function ViewNote() {
   };
 
   const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
+    return new Date(date).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -151,7 +151,7 @@ export default function ViewNote() {
           <div className={styles.documentMeta}>
             <span className={styles.metaItem}>
               <Calendar size={14} />
-              {new Date(note.shiftDate || note.createdAt).toLocaleDateString('en-US', {
+              {new Date(note.shiftDate || note.createdAt).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', {
                 weekday: 'short',
                 month: 'short',
                 day: 'numeric'
@@ -189,7 +189,7 @@ export default function ViewNote() {
                   <div className={styles.entryHeader}>
                     <Calendar size={12} />
                     <span className={styles.entryTime}>
-                      {new Date(entry.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(entry.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <span className={styles.entryTypeBadge}>
                       {entry.noteType === 'voice' && <Mic size={12} />}
@@ -210,7 +210,7 @@ export default function ViewNote() {
                     <div className={styles.entryAttachments}>
                       {entry.attachments.map((att, i) => {
                         const isImage = att.mimetype && att.mimetype.startsWith('image/');
-                        const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
+                        const fileUrl = `http://localhost:5000/${att.path}`;
 
                         return isImage ? (
                           <div key={att._id || i} style={{

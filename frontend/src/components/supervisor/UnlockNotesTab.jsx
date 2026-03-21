@@ -116,14 +116,14 @@ const UnlockNotesTab = () => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('en-IN', {
+    return new Date(dateStr).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', {
       weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
     });
   };
 
   const formatTimestamp = (dateStr) => {
     if (!dateStr) return '';
-    return new Date(dateStr).toLocaleString('en-IN', {
+    return new Date(dateStr).toLocaleString('en-AU', { timeZone: 'Australia/Sydney', {
       day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
     });
   };
@@ -288,7 +288,7 @@ const UnlockNotesTab = () => {
                       {note.attachments.filter(att => att.mimetype && att.mimetype.startsWith('image/')).slice(0, 3).map((att, i) => (
                         <img
                           key={i}
-                          src={`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`}
+                          src={`http://localhost:5000/${att.path}`}
                           alt={att.originalName}
                           style={{
                             width: '100px',

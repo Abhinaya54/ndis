@@ -2,7 +2,7 @@ import { useState, useEffect, useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Clock, Calendar, Lock, Unlock, MapPin, CheckCircle, FileText, Edit3
+  Clock, Calendar, Lock, Unlock, User, MapPin, CheckCircle, AlertCircle, FileText, Edit3
 } from 'lucide-react';
 import api from '../../api/api';
 import { AuthContext } from '../../context/AuthContext';
@@ -22,10 +22,25 @@ export default function ShiftHistory() {
     setLoading(true);
     setError('');
     try {
+      // Backend doesn't support '3months' dateRange, so fetch 'all' and filter on frontend
+      const apiDateRange = dateFilter === '3months' ? 'all' : dateFilter;
       const res = await api.get('/api/shift-history', {
-        params: { dateRange: dateFilter }
+        params: { dateRange: apiDateRange }
       });
-      setShifts(res.data.data || []);
+      let data = res.data.data || [];
+
+      // Filter for last 3 months on the frontend
+      if (dateFilter === '3months') {
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+        threeMonthsAgo.setHours(0, 0, 0, 0);
+        data = data.filter(shift => {
+          const shiftDate = new Date(shift.startDate || shift.createdAt);
+          return shiftDate >= threeMonthsAgo;
+        });
+      }
+
+      setShifts(data);
     } catch (err) {
       setError('Failed to load shift history');
       console.error('Shift history error:', err);
@@ -63,13 +78,13 @@ export default function ShiftHistory() {
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const formatTimestamp = (dateStr) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
-    return d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleString('en-AU', { timeZone: 'Australia/Sydney', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
   const filterTabs = [

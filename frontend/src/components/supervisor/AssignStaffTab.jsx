@@ -395,7 +395,7 @@ const AssignStaffTab = () => {
                           <strong>Shift:</strong> {assignment.shift}
                         </p>
                         <p style={{ margin: '0' }}>
-                          <strong>Date:</strong> {displayInfo?.fullDate || new Date(assignment.startDate).toLocaleDateString('en-IN')}
+                          <strong>Date:</strong> {displayInfo?.fullDate || new Date(assignment.startDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' })}
                         </p>
                         <p style={{ margin: '0' }}>
                           <strong>Status:</strong> {dateStatus.status}

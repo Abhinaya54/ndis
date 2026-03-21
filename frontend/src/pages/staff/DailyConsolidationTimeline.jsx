@@ -178,7 +178,7 @@ export default function DailyConsolidationTimeline() {
           animate="visible"
         >
           {notes.map((note, index) => {
-            const noteTime = new Date(note.createdAt).toLocaleTimeString("en-US", {
+            const noteTime = new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', {
               hour: "2-digit",
               minute: "2-digit",
             });
@@ -255,7 +255,7 @@ export default function DailyConsolidationTimeline() {
                         <div className={styles.attachmentsDisplay}>
                           {note.attachments.map((att, i) => {
                             const isImage = att.mimetype && att.mimetype.startsWith('image/');
-                            const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
+                            const fileUrl = `http://localhost:5000/${att.path}`;
 
                             return isImage ? (
                               <div key={att._id || i} className={styles.imageAttachment}>
@@ -281,7 +281,7 @@ export default function DailyConsolidationTimeline() {
                           {getNoteTypeIcon(note.noteType)}
                           {getNoteTypeLabel(note.noteType)}
                         </span>
-                        <span>Created: {new Date(note.createdAt).toLocaleString()}</span>
+                        <span>Created: {new Date(note.createdAt).toLocaleString("en-AU", { timeZone: "Australia/Sydney" })}</span>
                         {/* Only show Edit button for text/voice notes, not file notes */}
                         {note.noteType !== 'file' && (
                           <button

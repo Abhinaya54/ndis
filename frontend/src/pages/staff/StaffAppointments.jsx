@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, MapPin, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, User, MapPin, CheckCircle, AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api/api';
+import styles from './StaffAppointments.module.css';
 
 const StaffAppointments = () => {
   const [appointments, setAppointments] = useState([]);
@@ -10,7 +11,6 @@ const StaffAppointments = () => {
 
   useEffect(() => {
     fetchAppointments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   const fetchAppointments = async () => {
@@ -150,7 +150,7 @@ const StaffAppointments = () => {
                       }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Calendar size={14} />
-                          {new Date(appointment.appointmentDate).toLocaleDateString()}
+                          {new Date(appointment.appointmentDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' })}
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Clock size={14} />

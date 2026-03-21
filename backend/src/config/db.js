@@ -1,19 +1,11 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const connectDB = async () => {
-  const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
-  if (!uri) {
-    console.error(
-      '❌ MongoDB connection failed: missing MONGODB_URI or MONGO_URI environment variable'
-    );
-    process.exit(1);
-  }
-
   try {
-    await mongoose.connect(uri);
-    console.log("✅ MongoDB connected");
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/nexcare');
+    console.log(`MongoDB connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error("❌ MongoDB connection failed", error);
+    console.error('MongoDB connection error:', error.message);
     process.exit(1);
   }
 };

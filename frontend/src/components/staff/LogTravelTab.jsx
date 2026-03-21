@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../../api/api';
+import { todayAU } from '../../utils/dateUtils';
 import { TRIP_PURPOSES, TRIP_STATUSES } from '../../constants/shifts';
 
 const LogTravelTab = ({ onStatsUpdate }) => {
-  const formRef = useRef(null);
   const [assignedClients, setAssignedClients] = useState([]);
   const [myTrips, setMyTrips] = useState([]);
   const [monthlyStats, setMonthlyStats] = useState({ totalTrips: 0, totalKm: 0, approved: 0 });
   const [formData, setFormData] = useState({
     clientId: '',
-    tripDate: new Date().toISOString().split('T')[0],
+    tripDate: todayAU(),
     startTime: '',
     endTime: '',
     relatedShift: '',
@@ -92,7 +92,7 @@ const LogTravelTab = ({ onStatsUpdate }) => {
         setMessage({ type: 'success', text: 'Trip submitted successfully!' });
         setFormData({
           clientId: '',
-          tripDate: new Date().toISOString().split('T')[0],
+          tripDate: todayAU(),
           startTime: '',
           endTime: '',
           relatedShift: '',
@@ -120,7 +120,7 @@ const LogTravelTab = ({ onStatsUpdate }) => {
     : 0;
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-IN');
+    return new Date(dateString).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
   };
 
   if (loading) {
@@ -143,7 +143,7 @@ const LogTravelTab = ({ onStatsUpdate }) => {
       )}
 
       {/* Form */}
-      <form ref={formRef} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} onSubmit={submitTrip}>
+      <form style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} onSubmit={submitTrip}>
         <h3 style={{ margin: '0 0 8px 0', color: '#1a1a2e' }}>🚗 Log Travel</h3>
         <p style={{ margin: '0 0 16px 0', color: '#6b7280', fontSize: '14px' }}>
           Record odometer readings for client transport. Requires supervisor approval for NDIS billing.
@@ -185,7 +185,7 @@ const LogTravelTab = ({ onStatsUpdate }) => {
             name="tripDate"
             value={formData.tripDate}
             onChange={handleInputChange}
-            max={new Date().toISOString().split('T')[0]}
+            max={todayAU()}
             style={{
               width: '100%',
               padding: '10px',
@@ -381,14 +381,13 @@ const LogTravelTab = ({ onStatsUpdate }) => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {/* Recent Trips */}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h4 style={{ margin: 0, color: '#1a1a2e' }}>🚗 My Recent Trips</h4>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h4 style={{ margin: '0', color: '#1a1a2e' }}>My Recent Trips</h4>
             <button
-              type="button"
               onClick={() => {
                 setFormData({
                   clientId: '',
-                  tripDate: new Date().toISOString().split('T')[0],
+                  tripDate: todayAU(),
                   startTime: '',
                   endTime: '',
                   relatedShift: '',
@@ -398,24 +397,28 @@ const LogTravelTab = ({ onStatsUpdate }) => {
                   staffNotes: ''
                 });
                 setSelectedPurpose('');
-                formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                setMessage({ type: '', text: '' });
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
+              title="Add new trip"
               style={{
-                width: '32px',
-                height: '32px',
+                width: '30px',
+                height: '30px',
                 borderRadius: '50%',
                 backgroundColor: '#7c3aed',
                 color: 'white',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '20px',
-                fontWeight: '700',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                lineHeight: 1
+                fontSize: '20px',
+                fontWeight: '700',
+                lineHeight: '1',
+                transition: 'background-color 0.2s'
               }}
-              title="Add new travel entry"
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#6d28d9'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#7c3aed'}
             >
               +
             </button>

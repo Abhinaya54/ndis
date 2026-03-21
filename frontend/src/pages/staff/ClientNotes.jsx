@@ -27,7 +27,6 @@ export default function ClientNotes() {
   const [endOdometer, setEndOdometer] = useState('');
   const [savingOdometer, setSavingOdometer] = useState(false);
   const [odometerSaved, setOdometerSaved] = useState(false);
-  const [travelEntries, setTravelEntries] = useState([]);
 
   const fetchData = useCallback(async (showLoading = true) => {
     if (!clientId || !user?.id) return;
@@ -150,16 +149,7 @@ export default function ClientNotes() {
     setUploading(false);
   };
 
-  const hasIncident = notes.some(note => note.category === 'Incident');
-
   const handleLockAndSend = async () => {
-    // Block if no incident has been reported
-    if (!hasIncident) {
-      alert('You must add at least one incident report before sending notes to the supervisor.');
-      navigate(`/staff/clients/${clientId}/incident`);
-      return;
-    }
-
     if (!window.confirm('Lock all consolidated notes and send to supervisor? This cannot be undone.')) return;
 
     setLockingSending(true);
@@ -247,6 +237,9 @@ export default function ClientNotes() {
     }
   };
 
+  // Check if an incident has already been added for this client/shift
+  const hasIncident = notes.some(note => note.category === 'Incident');
+
   // Section A: Draft and Review notes (waiting to be confirmed)
   const reviewNotes = notes.filter(note =>
     (note.status === 'Draft' || note.status === 'Review') && !note.isLocked
@@ -302,6 +295,46 @@ export default function ClientNotes() {
         </div>
       )}
 
+      {/* Incident Reminder Banner */}
+      {isShiftActive && !hasIncident && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '12px 16px',
+          backgroundColor: '#fffbeb',
+          border: '1px solid #f59e0b',
+          borderRadius: '8px',
+          marginBottom: '16px'
+        }}>
+          <AlertTriangle size={20} color="#d97706" />
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: '14px', fontWeight: '600', color: '#92400e' }}>
+              Incident Reminder
+            </span>
+            <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#a16207' }}>
+              Please remember to report any incidents that occurred during this shift.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate(`/staff/clients/${clientId}/incident`)}
+            style={{
+              padding: '6px 14px',
+              backgroundColor: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: '600',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Add Incident
+          </button>
+        </div>
+      )}
+
       {/* Travel Tracking Section */}
       {assignment && (
         <div className={styles.travelTrackingSection}>
@@ -314,32 +347,31 @@ export default function ClientNotes() {
               </span>
             )}
             <button
-              onClick={() => {
-                setTravelEntries(prev => [...prev, { start: '', end: '' }]);
-              }}
+              onClick={() => navigate(`/staff/clients/${clientId}/travel-log`)}
+              title="Add new travel entry"
               style={{
                 marginLeft: 'auto',
                 width: '28px',
                 height: '28px',
                 borderRadius: '50%',
-                backgroundColor: '#0891b2',
+                backgroundColor: '#7c3aed',
                 color: 'white',
                 border: 'none',
                 cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: '700',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                lineHeight: 1
+                fontSize: '18px',
+                fontWeight: '700',
+                lineHeight: '1',
+                transition: 'background-color 0.2s'
               }}
-              title="Add new travel entry"
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#6d28d9'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#7c3aed'}
             >
               +
             </button>
           </div>
-
-          {/* Main odometer entry */}
           <div className={styles.odometerRow}>
             <div className={styles.odometerField}>
               <label>Start Odometer (km)</label>
@@ -371,68 +403,6 @@ export default function ClientNotes() {
               Total Distance: <strong>{calculatedDistance} km</strong>
             </div>
           )}
-
-          {/* Additional travel entries */}
-          {travelEntries.map((entry, index) => {
-            const dist = entry.start && entry.end && parseFloat(entry.end) > parseFloat(entry.start)
-              ? (parseFloat(entry.end) - parseFloat(entry.start)).toFixed(1)
-              : null;
-            return (
-              <div key={index} style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #b2ebf2' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#0891b2' }}>Trip {index + 2}</span>
-                  <button
-                    onClick={() => setTravelEntries(prev => prev.filter((_, i) => i !== index))}
-                    style={{
-                      background: 'none', border: 'none', color: '#ef4444',
-                      cursor: 'pointer', fontSize: '18px', lineHeight: 1, padding: '2px 6px'
-                    }}
-                    title="Remove this entry"
-                  >
-                    ×
-                  </button>
-                </div>
-                <div className={styles.odometerRow}>
-                  <div className={styles.odometerField}>
-                    <label>Start Odometer (km)</label>
-                    <input
-                      type="number"
-                      className={styles.odometerInput}
-                      placeholder="e.g. 45032"
-                      value={entry.start}
-                      onChange={(e) => {
-                        setTravelEntries(prev => prev.map((en, i) => i === index ? { ...en, start: e.target.value } : en));
-                        setOdometerSaved(false);
-                      }}
-                      min="0"
-                      step="0.1"
-                    />
-                  </div>
-                  <div className={styles.odometerField}>
-                    <label>End Odometer (km)</label>
-                    <input
-                      type="number"
-                      className={styles.odometerInput}
-                      placeholder="e.g. 45060"
-                      value={entry.end}
-                      onChange={(e) => {
-                        setTravelEntries(prev => prev.map((en, i) => i === index ? { ...en, end: e.target.value } : en));
-                        setOdometerSaved(false);
-                      }}
-                      min="0"
-                      step="0.1"
-                    />
-                  </div>
-                </div>
-                {dist && (
-                  <div className={styles.odometerDistance}>
-                    Distance: <strong>{dist} km</strong>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
           <div className={styles.odometerActions}>
             <button
               className={styles.odometerSaveBtn}
@@ -643,7 +613,7 @@ export default function ClientNotes() {
             {reviewNotes.slice(0, 3).map((note) => (
               <div key={note._id} className={styles.pendingNotePreview}>
                 <span className={styles.pendingNoteTime}>
-                  {new Date(note.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', { hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <span className={styles.pendingNoteType}>
                   {note.noteType === 'voice' ? 'Voice' : note.noteType === 'file' ? 'File' : 'Text'}
@@ -653,7 +623,7 @@ export default function ClientNotes() {
                 {note.noteType === 'file' && note.attachments && note.attachments.length > 0 ? (
                   <div className={styles.pendingNoteImages}>
                     {note.attachments.filter(att => att.mimetype && att.mimetype.startsWith('image/')).map((att, i) => {
-                      const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
+                      const fileUrl = `http://localhost:5000/${att.path}`;
                       return (
                         <div key={att._id || i} className={styles.pendingImageThumb}>
                           <img src={fileUrl} alt={att.originalName} />
@@ -703,48 +673,13 @@ export default function ClientNotes() {
             </motion.button>
           </div>
 
-          {/* Incident required banner */}
-          {!hasIncident && (
-            <div style={{
-              padding: '12px 16px',
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fca5a5',
-              borderRadius: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              marginBottom: '12px'
-            }}>
-              <AlertTriangle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
-              <span style={{ fontSize: '14px', color: '#991b1b', flex: 1 }}>
-                At least one incident report is required before sending notes to the supervisor.
-              </span>
-              <button
-                onClick={() => navigate(`/staff/clients/${clientId}/incident`)}
-                style={{
-                  padding: '6px 14px',
-                  backgroundColor: '#dc2626',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                Add Incident
-              </button>
-            </div>
-          )}
-
           {/* Continuous document view */}
           <div className={styles.consolidatedDocument}>
             {consolidatedNotes.map((note, index) => (
               <div key={note._id} className={styles.consolidatedEntry}>
                 <div className={styles.entryTimestamp}>
                   <Calendar size={12} />
-                  {new Date(note.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', { hour: '2-digit', minute: '2-digit' })}
                   {' - '}
                   <span className={styles.entryTypeBadge}>
                     {note.noteType === 'voice' && <Mic size={12} />}
@@ -764,7 +699,7 @@ export default function ClientNotes() {
                   <div className={styles.entryAttachments}>
                     {note.attachments.map((att, i) => {
                       const isImage = att.mimetype && att.mimetype.startsWith('image/');
-                      const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
+                      const fileUrl = `http://localhost:5000/${att.path}`;
 
                       return isImage ? (
                         <div key={att._id || i} className={styles.attachmentImage}>
@@ -825,7 +760,7 @@ export default function ClientNotes() {
                 <div className={styles.submittedDocMeta}>
                   <span className={styles.submittedDocDate}>
                     <Calendar size={14} />
-                    {new Date(note.shiftDate || note.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {new Date(note.shiftDate || note.createdAt).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', { weekday: 'short', month: 'short', day: 'numeric' })}
                   </span>
                   {note.shift && (
                     <span className={styles.submittedDocShift}>
@@ -847,7 +782,7 @@ export default function ClientNotes() {
                     <div key={index} className={styles.consolidatedEntry}>
                       <div className={styles.entryTimestamp}>
                         <Calendar size={12} />
-                        {new Date(entry.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(entry.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', { hour: '2-digit', minute: '2-digit' })}
                         {' - '}
                         <span className={styles.entryTypeBadge}>
                           {entry.noteType === 'voice' && <Mic size={12} />}
@@ -867,7 +802,7 @@ export default function ClientNotes() {
                         <div className={styles.entryAttachments}>
                           {entry.attachments.map((att, i) => {
                             const isImage = att.mimetype && att.mimetype.startsWith('image/');
-                            const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
+                            const fileUrl = `http://localhost:5000/${att.path}`;
 
                             return isImage ? (
                               <div key={att._id || i} className={styles.attachmentImage}>

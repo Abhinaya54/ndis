@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Users, Clock, Calendar, FileText, CheckCircle, Activity,
-  ArrowRight, Mic
+  ArrowRight, Bell, Mic
 } from 'lucide-react';
 import api from '../../api/api';
 import { AuthContext } from '../../context/AuthContext';
@@ -48,11 +48,25 @@ export default function Staffdashboard() {
       const shiftsData = shiftsRes.data?.data || {};
       const assignments = shiftsData.assignments || [];
 
-      // Filter for today's schedule - use backend computedStatus instead of date filtering
+      // Filter for today's schedule
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endOfToday = new Date(today);
+      endOfToday.setHours(23, 59, 59, 999);
+
       const todayAssignments = assignments.filter(assignment => {
-        // Trust backend computedStatus - it already accounts for timezone
-        const status = assignment.computedStatus || '';
-        return status === 'Current' || status === 'Pending';
+        if (!assignment.isActive) return false;
+        const startDate = new Date(assignment.startDate);
+        startDate.setHours(0, 0, 0, 0);
+
+        // Check if assignment includes today
+        let endDate = assignment.endDate ? new Date(assignment.endDate) : new Date(startDate);
+        if (!assignment.endDate) {
+          endDate.setMonth(endDate.getMonth() + 1);
+        }
+        endDate.setHours(23, 59, 59, 999);
+
+        return startDate <= endOfToday && endDate >= today;
       });
 
       // Create schedule items from today's assignments using shared utility
@@ -151,7 +165,7 @@ export default function Staffdashboard() {
 
     let dateDisplay = 'Today';
     if (shiftDate.setHours(0, 0, 0, 0) !== today.getTime()) {
-      dateDisplay = shiftDate.toLocaleDateString('en-US', {
+      dateDisplay = shiftDate.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', {
         weekday: 'short',
         month: 'short',
         day: 'numeric'
@@ -185,7 +199,7 @@ export default function Staffdashboard() {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays}d ago`;
-    return noteDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return noteDate.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', { month: 'short', day: 'numeric' });
   };
 
   const tabs = [
@@ -355,7 +369,7 @@ export default function Staffdashboard() {
                   Today's Schedule
                 </h3>
                 <span className={styles.dateLabel}>
-                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                  {new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', { weekday: 'long', month: 'short', day: 'numeric' })}
                 </span>
               </div>
 

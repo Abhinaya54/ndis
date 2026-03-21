@@ -1,21 +1,37 @@
-import axios from "axios";
+import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000",
-  headers: { "Content-Type": "application/json" },
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-// Attach token if present
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// Attach token to every request
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Handle 401 responses globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;
-// API utility functions for backend communication
-export const fetchData = async (endpoint, options = {}) => {
-  const response = await fetch(endpoint, options);
-  if (!response.ok) throw new Error('API error');
-  return response.json();
-};

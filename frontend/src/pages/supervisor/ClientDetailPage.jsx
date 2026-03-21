@@ -85,7 +85,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
 
   const handleDownloadSummary = async () => {
     try {
-      const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+      const baseURL = 'http://localhost:5000';
       const response = await fetch(`${baseURL}/api/clients/${clientId}/summary-report`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -506,7 +506,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
                           }}
                         >
                           <div style={{ fontSize: '12px', color: '#999', marginBottom: '8px' }}>
-                            {new Date(entry.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(entry.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', { hour: '2-digit', minute: '2-digit' })}
                             {' - '}
                             <span style={{ fontWeight: '600', color: '#7e3285' }}>
                               {entry.noteType === 'voice' ? 'Voice' : entry.noteType === 'file' ? 'File' : 'Text'}
@@ -518,7 +518,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
                             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                               {entry.attachments.map((att, i) => {
                                 const isImage = att.mimetype && att.mimetype.startsWith('image/');
-                                const fileUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/${att.path}`;
+                                const fileUrl = `http://localhost:5000/${att.path}`;
 
                                 return isImage ? (
                                   <div key={i} style={{
