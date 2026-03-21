@@ -124,7 +124,7 @@ const WriteNoteTab = ({ onStatsUpdate }) => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-IN');
+    return new Date(dateString).toLocaleDateString('en-AU');
   };
 
   if (loading) {

@@ -116,14 +116,14 @@ const UnlockNotesTab = () => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('en-IN', {
+    return new Date(dateStr).toLocaleDateString('en-AU', {
       weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
     });
   };
 
   const formatTimestamp = (dateStr) => {
     if (!dateStr) return '';
-    return new Date(dateStr).toLocaleString('en-IN', {
+    return new Date(dateStr).toLocaleString('en-AU', {
       day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
     });
   };

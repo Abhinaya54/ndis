@@ -1,7 +1,7 @@
 /**
- * Get current time in configured timezone (India Standard Time)
+ * Get current time in configured timezone (Australia Eastern Standard Time)
  */
-const TIMEZONE = process.env.REACT_APP_TIMEZONE || 'Asia/Kolkata';
+const TIMEZONE = process.env.REACT_APP_TIMEZONE || 'Australia/Sydney';
 
 const getConfiguredTime = () => {
   try {
@@ -261,9 +261,9 @@ export const formatDateForDisplay = (date) => {
 
   return {
     relative,
-    short: d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-    full: d.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-    weekday: d.toLocaleDateString('en-IN', { weekday: 'short' }),
+    short: d.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' }),
+    full: d.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    weekday: d.toLocaleDateString('en-AU', { weekday: 'short' }),
     iso: d.toISOString().split('T')[0]
   };
 };

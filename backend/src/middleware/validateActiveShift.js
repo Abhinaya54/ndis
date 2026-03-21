@@ -1,11 +1,11 @@
 const Assignment = require('../models/Assignment');
 
-// Business timezone offset (IST = UTC+5:30). Shift times are always in this timezone.
-const BUSINESS_TZ_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+// Business timezone offset (AEST = UTC+10). Shift times are always in this timezone.
+const BUSINESS_TZ_OFFSET_MS = 10 * 60 * 60 * 1000;
 
 /**
- * Get the current time shifted into the business timezone (IST).
- * Using getUTCHours()/getUTCMinutes() on the returned Date gives IST values.
+ * Get the current time shifted into the business timezone (AEST).
+ * Using getUTCHours()/getUTCMinutes() on the returned Date gives AEST values.
  */
 function getNowInBusinessTZ() {
   return new Date(Date.now() + BUSINESS_TZ_OFFSET_MS);

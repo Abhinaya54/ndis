@@ -1,13 +1,13 @@
 /**
  * Shared utility for calculating assignment status dynamically
- * Uses India Standard Time (IST, Asia/Kolkata, UTC+5:30)
+ * Uses Australia Eastern Standard Time (AEST, Australia/Sydney, UTC+10)
  */
 
 /**
- * Get current time in IST
+ * Get current time in AEST
  */
 const getConfiguredTime = () => {
-  const timezone = process.env.TIMEZONE || 'Asia/Kolkata';
+  const timezone = process.env.TIMEZONE || 'Australia/Sydney';
 
   try {
     const utcDate = new Date();
@@ -23,11 +23,11 @@ const getConfiguredTime = () => {
 };
 
 /**
- * Get timezone offset in milliseconds (IST = UTC+5:30)
+ * Get timezone offset in milliseconds (AEST = UTC+10)
  * KEPT FOR LEGACY - Use getConfiguredTime() instead
  */
 const getTZOffset = () => {
-  return 5.5 * 60 * 60 * 1000; // IST = UTC+5:30
+  return 10 * 60 * 60 * 1000; // AEST = UTC+10
 };
 
 /**
@@ -83,7 +83,7 @@ const calculateDynamicStatus = (startDate, _endDate, shift) => {
 
     // Normalize assignment date to the configured timezone
     const rawAssignDate = new Date(startDate);
-    const timezone = process.env.TIMEZONE || 'Asia/Kolkata';
+    const timezone = process.env.TIMEZONE || 'Australia/Sydney';
     let assignYear, assignMonth, assignDate;
     try {
       // Extract year/month/day in the configured timezone
@@ -233,8 +233,8 @@ const formatDateDisplay = (date) => {
   }
 
   return {
-    short: d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-    full: d.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    short: d.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' }),
+    full: d.toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
     relative,
     iso: d.toISOString().split('T')[0]
   };
