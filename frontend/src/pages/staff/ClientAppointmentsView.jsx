@@ -164,7 +164,7 @@ const ClientAppointmentsView = () => {
                             <div style={{ display: 'flex', gap: '16px', fontSize: '14px', color: '#666', flexWrap: 'wrap' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <Calendar size={14} />
-                                {new Date(appointment.appointmentDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', {
+                                {new Date(appointment.appointmentDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', 
                                   weekday: 'short',
                                   day: 'numeric',
                                   month: 'short',

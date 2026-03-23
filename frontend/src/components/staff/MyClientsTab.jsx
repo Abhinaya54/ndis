@@ -51,7 +51,7 @@ const MyClientsTab = () => {
   };
 
   const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', {
+    return new Date(dateString).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', 
       month: 'short',
       day: 'numeric',
       hour: '2-digit',

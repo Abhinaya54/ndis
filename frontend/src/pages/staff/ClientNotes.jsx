@@ -613,7 +613,7 @@ export default function ClientNotes() {
             {reviewNotes.slice(0, 3).map((note) => (
               <div key={note._id} className={styles.pendingNotePreview}>
                 <span className={styles.pendingNoteTime}>
-                  {new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney',  hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <span className={styles.pendingNoteType}>
                   {note.noteType === 'voice' ? 'Voice' : note.noteType === 'file' ? 'File' : 'Text'}
@@ -679,7 +679,7 @@ export default function ClientNotes() {
               <div key={note._id} className={styles.consolidatedEntry}>
                 <div className={styles.entryTimestamp}>
                   <Calendar size={12} />
-                  {new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney',  hour: '2-digit', minute: '2-digit' })}
                   {' - '}
                   <span className={styles.entryTypeBadge}>
                     {note.noteType === 'voice' && <Mic size={12} />}
@@ -760,7 +760,7 @@ export default function ClientNotes() {
                 <div className={styles.submittedDocMeta}>
                   <span className={styles.submittedDocDate}>
                     <Calendar size={14} />
-                    {new Date(note.shiftDate || note.createdAt).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {new Date(note.shiftDate || note.createdAt).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney',  weekday: 'short', month: 'short', day: 'numeric' })}
                   </span>
                   {note.shift && (
                     <span className={styles.submittedDocShift}>
@@ -782,7 +782,7 @@ export default function ClientNotes() {
                     <div key={index} className={styles.consolidatedEntry}>
                       <div className={styles.entryTimestamp}>
                         <Calendar size={12} />
-                        {new Date(entry.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(entry.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney',  hour: '2-digit', minute: '2-digit' })}
                         {' - '}
                         <span className={styles.entryTypeBadge}>
                           {entry.noteType === 'voice' && <Mic size={12} />}

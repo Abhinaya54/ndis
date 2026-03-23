@@ -178,7 +178,7 @@ export default function DailyConsolidationTimeline() {
           animate="visible"
         >
           {notes.map((note, index) => {
-            const noteTime = new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', {
+            const noteTime = new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', 
               hour: "2-digit",
               minute: "2-digit",
             });

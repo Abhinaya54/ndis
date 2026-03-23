@@ -26,7 +26,6 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
     fetchClientShifts();
     fetchClientNotes();
     fetchClientAppointments();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
 
   const fetchClientDetails = async () => {
@@ -506,7 +505,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
                           }}
                         >
                           <div style={{ fontSize: '12px', color: '#999', marginBottom: '8px' }}>
-                            {new Date(entry.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(entry.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney',  hour: '2-digit', minute: '2-digit' })}
                             {' - '}
                             <span style={{ fontWeight: '600', color: '#7e3285' }}>
                               {entry.noteType === 'voice' ? 'Voice' : entry.noteType === 'file' ? 'File' : 'Text'}

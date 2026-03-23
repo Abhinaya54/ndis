@@ -26,7 +26,6 @@ const AssignStaffTab = () => {
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchClients = useCallback(async (staffId = null) => {

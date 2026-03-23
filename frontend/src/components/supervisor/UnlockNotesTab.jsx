@@ -116,14 +116,14 @@ const UnlockNotesTab = () => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
-    return new Date(dateStr).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', {
+    return new Date(dateStr).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', 
       weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
     });
   };
 
   const formatTimestamp = (dateStr) => {
     if (!dateStr) return '';
-    return new Date(dateStr).toLocaleString('en-AU', { timeZone: 'Australia/Sydney', {
+    return new Date(dateStr).toLocaleString('en-AU', { timeZone: 'Australia/Sydney', 
       day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
     });
   };

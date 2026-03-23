@@ -101,13 +101,13 @@ const ShiftHistoryTab = () => {
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney',  weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const formatTimestamp = (dateStr) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
-    return d.toLocaleString('en-AU', { timeZone: 'Australia/Sydney', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleString('en-AU', { timeZone: 'Australia/Sydney',  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
   const filterTabs = [

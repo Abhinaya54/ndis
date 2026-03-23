@@ -165,7 +165,7 @@ export default function Staffdashboard() {
 
     let dateDisplay = 'Today';
     if (shiftDate.setHours(0, 0, 0, 0) !== today.getTime()) {
-      dateDisplay = shiftDate.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', {
+      dateDisplay = shiftDate.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', 
         weekday: 'short',
         month: 'short',
         day: 'numeric'
@@ -199,7 +199,7 @@ export default function Staffdashboard() {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays}d ago`;
-    return noteDate.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', { month: 'short', day: 'numeric' });
+    return noteDate.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney',  month: 'short', day: 'numeric' });
   };
 
   const tabs = [
@@ -369,7 +369,7 @@ export default function Staffdashboard() {
                   Today's Schedule
                 </h3>
                 <span className={styles.dateLabel}>
-                  {new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', { weekday: 'long', month: 'short', day: 'numeric' })}
+                  {new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney',  weekday: 'long', month: 'short', day: 'numeric' })}
                 </span>
               </div>
 
