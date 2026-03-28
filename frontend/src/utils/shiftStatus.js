@@ -27,8 +27,23 @@ export function getAssignmentDateStatus(startDate, shiftName) {
   const assignmentDateStr = new Date(startDate).toLocaleDateString('en-CA', { timeZone: TZ });
   const assignmentDate = new Date(assignmentDateStr + 'T00:00:00');
 
-  // Find shift definition
-  const shift = SHIFTS.find(s => s.label === shiftName) || null;
+  // Find shift definition by label, or parse custom "H:MM AM - H:MM PM" format
+  let shift = SHIFTS.find(s => s.label === shiftName) || null;
+
+  if (!shift && shiftName) {
+    const match = shiftName.match(
+      /^(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i
+    );
+    if (match) {
+      const to24 = (h, m, ampm) => {
+        let hour = parseInt(h, 10);
+        if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+        if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+        return `${String(hour).padStart(2, '0')}:${m}`;
+      };
+      shift = { startTime: to24(match[1], match[2], match[3]), endTime: to24(match[4], match[5], match[6]) };
+    }
+  }
 
   if (!shift) {
     // Fallback: just compare dates

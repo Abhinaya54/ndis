@@ -37,9 +37,37 @@ function computeShiftStatus(assignment) {
     'Sleepover (10PM-6AM)': { startTime: '22:00', endTime: '06:00' }
   };
 
-  const shiftDef = SHIFTS[assignment.shift];
+  let shiftDef = SHIFTS[assignment.shift];
+
+  // Parse custom time range format: "4:13 PM - 10:14 PM"
+  if (!shiftDef && assignment.shift) {
+    const match = assignment.shift.match(
+      /^(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i
+    );
+    if (match) {
+      const to24 = (h, m, ampm) => {
+        let hour = parseInt(h, 10);
+        if (ampm.toUpperCase() === 'PM' && hour !== 12) hour += 12;
+        if (ampm.toUpperCase() === 'AM' && hour === 12) hour = 0;
+        return `${String(hour).padStart(2, '0')}:${m}`;
+      };
+      shiftDef = {
+        startTime: to24(match[1], match[2], match[3]),
+        endTime: to24(match[4], match[5], match[6])
+      };
+    }
+  }
+
   if (!shiftDef) {
-    return { computedStatus: 'Unknown', statusBadge: 'Unknown', shiftPhase: null };
+    // Fallback: compare date only
+    const now = new Date();
+    const assignmentDate = new Date(assignment.startDate);
+    assignmentDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (assignmentDate > today) return { computedStatus: 'Pending', statusBadge: 'Upcoming', shiftPhase: 'before' };
+    if (assignmentDate < today) return { computedStatus: 'Previous', statusBadge: 'Completed', shiftPhase: 'after' };
+    return { computedStatus: 'Current', statusBadge: 'Active Now', shiftPhase: 'during' };
   }
 
   const now = new Date();
