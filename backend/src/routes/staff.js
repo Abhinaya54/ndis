@@ -117,10 +117,12 @@ router.get('/dashboard', auth, requireRole('staff'), async (req, res) => {
     for (const assignment of assignments) {
       const status = computeShiftStatus(assignment);
       if (status.computedStatus === 'Current') {
+        const times = assignment.shift.match(/\d{1,2}:\d{2}\s*(?:AM|PM)/gi) || [];
+        const parts = assignment.shift.split(/\s*-\s*/);
         shift = {
           date: assignment.startDate,
-          startTime: assignment.shift.match(/\d+[AP]M/g)?.[0] || '',
-          endTime: assignment.shift.match(/\d+[AP]M/g)?.[1] || '',
+          startTime: times[0] || parts[0]?.trim() || '',
+          endTime: times[1] || parts[1]?.trim() || '',
           shift: assignment.shift
         };
         shiftType = 'active';
