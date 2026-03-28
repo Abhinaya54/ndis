@@ -16,7 +16,7 @@ const connectDB = async () => {
       }
     }
 
-    const finalUri = mongoUri || 'mongodb://localhost:27017/nexcare';
+    const finalUri = mongoUri || 'mongodb://localhost:27017/test';
 
     if (isProduction && /localhost|127\.0\.0\.1|::1/.test(finalUri)) {
       throw new Error('Invalid MongoDB URI for production. Use a hosted MongoDB connection string.');
