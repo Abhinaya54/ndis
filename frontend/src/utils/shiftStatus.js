@@ -7,9 +7,16 @@ const TZ = 'Australia/Sydney';
  * Determines if a shift is Current, Pending, or Previous
  * based on the assignment's startDate and the shift time range.
  */
+const STATUS_COLORS = {
+  Current:  { border: '#16a34a', bg: '#f0fdf4', text: '#15803d' },
+  Pending:  { border: '#2563eb', bg: '#eff6ff', text: '#1d4ed8' },
+  Previous: { border: '#9ca3af', bg: '#f9fafb', text: '#6b7280' },
+  Unknown:  { border: '#9ca3af', bg: '#f9fafb', text: '#6b7280' },
+};
+
 export function getAssignmentDateStatus(startDate, shiftName) {
   if (!startDate || !shiftName) {
-    return { status: 'Unknown', badge: 'Unknown', shiftPhase: null };
+    return { status: 'Unknown', badge: 'Unknown', shiftPhase: null, color: STATUS_COLORS.Unknown };
   }
 
   const now = new Date();
@@ -26,12 +33,12 @@ export function getAssignmentDateStatus(startDate, shiftName) {
   if (!shift) {
     // Fallback: just compare dates
     if (assignmentDate > today) {
-      return { status: 'Pending', badge: 'Upcoming', shiftPhase: 'before' };
+      return { status: 'Pending', badge: 'Upcoming', shiftPhase: 'before', color: STATUS_COLORS.Pending };
     }
     if (assignmentDate < today) {
-      return { status: 'Previous', badge: 'Completed', shiftPhase: 'after' };
+      return { status: 'Previous', badge: 'Completed', shiftPhase: 'after', color: STATUS_COLORS.Previous };
     }
-    return { status: 'Current', badge: 'Active Now', shiftPhase: 'during' };
+    return { status: 'Current', badge: 'Active Now', shiftPhase: 'during', color: STATUS_COLORS.Current };
   }
 
   // Parse shift start and end times
@@ -64,7 +71,7 @@ export function getAssignmentDateStatus(startDate, shiftName) {
       badge = `Starts in ${diffMins}m`;
     }
 
-    return { status: 'Pending', badge, shiftPhase: 'before' };
+    return { status: 'Pending', badge, shiftPhase: 'before', color: STATUS_COLORS.Pending };
   }
 
   if (now > shiftEnd) {
@@ -82,7 +89,7 @@ export function getAssignmentDateStatus(startDate, shiftName) {
       badge = `Ended ${diffMins}m ago`;
     }
 
-    return { status: 'Previous', badge, shiftPhase: 'after' };
+    return { status: 'Previous', badge, shiftPhase: 'after', color: STATUS_COLORS.Previous };
   }
 
   // During shift
@@ -91,7 +98,7 @@ export function getAssignmentDateStatus(startDate, shiftName) {
   const remMins = Math.floor((remaining % 3600000) / 60000);
   const badge = remHours > 0 ? `${remHours}h ${remMins}m remaining` : `${remMins}m remaining`;
 
-  return { status: 'Current', badge, shiftPhase: 'during' };
+  return { status: 'Current', badge, shiftPhase: 'during', color: STATUS_COLORS.Current };
 }
 
 /**
