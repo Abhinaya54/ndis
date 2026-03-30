@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Eye, AlertCircle } from 'lucide-react';
 import api from '../../api/api';
 import { AuthContext } from '../../context/AuthContext';
 import DynamicShiftDropdown from './DynamicShiftDropdown';
@@ -8,10 +7,6 @@ import DynamicShiftDropdown from './DynamicShiftDropdown';
 const ViewNotesTab = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const [verified, setVerified] = useState(false);
-  const [password, setPassword] = useState('');
-  const [verifyError, setVerifyError] = useState('');
-  const [verifying, setVerifying] = useState(false);
   const [notes, setNotes] = useState([]);
   const [clients, setClients] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -22,32 +17,6 @@ const ViewNotesTab = () => {
     shift: 'all',
     dateRange: 'all'
   });
-
-  const handleVerify = async (e) => {
-    e.preventDefault();
-    if (!password.trim()) {
-      setVerifyError('Please enter your password');
-      return;
-    }
-    setVerifying(true);
-    setVerifyError('');
-    try {
-      const res = await api.post('/api/auth/verify-password', { password });
-      if (res.data.success) {
-        setVerified(true);
-      } else {
-        setVerifyError('Incorrect password. Please try again.');
-      }
-    } catch (err) {
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        setVerifyError('Incorrect password. Please try again.');
-      } else {
-        setVerifyError('Verification failed. Please try again.');
-      }
-    } finally {
-      setVerifying(false);
-    }
-  };
 
   // Fetch clients and staff on component mount
   useEffect(() => {
@@ -97,101 +66,6 @@ const ViewNotesTab = () => {
       alert('Failed to delete note');
     }
   };
-
-  // Verification gate
-  if (!verified) {
-    return (
-      <div style={{ padding: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <div style={{
-          maxWidth: '420px',
-          width: '100%',
-          padding: '32px',
-          borderRadius: '12px',
-          backgroundColor: '#fff',
-          border: '1px solid #e5e7eb',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '50%',
-            backgroundColor: '#eef2ff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 16px'
-          }}>
-            <Lock size={28} color="#6366f1" />
-          </div>
-          <h2 style={{ margin: '0 0 8px 0', fontSize: '20px', color: '#1a1a2e' }}>Verification Required</h2>
-          <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: '#6b7280' }}>
-            Please enter your password to access the View Notes section.
-          </p>
-          <form onSubmit={handleVerify}>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setVerifyError(''); }}
-              placeholder="Enter your password"
-              autoFocus
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                border: verifyError ? '2px solid #ef4444' : '1px solid #d1d5db',
-                borderRadius: '8px',
-                fontSize: '14px',
-                marginBottom: '12px',
-                outline: 'none',
-                boxSizing: 'border-box',
-                transition: 'border-color 0.2s'
-              }}
-            />
-            {verifyError && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 12px',
-                backgroundColor: '#fef2f2',
-                borderRadius: '6px',
-                marginBottom: '12px',
-                fontSize: '13px',
-                color: '#dc2626'
-              }}>
-                <AlertCircle size={14} />
-                {verifyError}
-              </div>
-            )}
-            <button
-              type="submit"
-              disabled={verifying || !password.trim()}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#6366f1',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: verifying || !password.trim() ? 'not-allowed' : 'pointer',
-                opacity: verifying || !password.trim() ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                transition: 'opacity 0.2s'
-              }}
-            >
-              <Eye size={16} />
-              {verifying ? 'Verifying...' : 'Verify & View Notes'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={{ padding: '20px' }}>
