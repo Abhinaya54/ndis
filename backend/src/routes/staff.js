@@ -257,23 +257,52 @@ router.post('/clients/:clientId/notes', auth, requireRole('staff'), async (req, 
 // POST /api/staff/clients/:clientId/notes/lock-and-send
 router.post('/clients/:clientId/notes/lock-and-send', auth, requireRole('staff'), async (req, res) => {
   try {
-    const result = await Note.updateMany(
-      {
-        clientId: req.params.clientId,
-        staffId: req.user._id,
-        status: 'Consolidated',
-        isLocked: false
-      },
-      {
-        $set: {
-          status: 'Submitted',
-          isLocked: true,
-          lockedAt: new Date()
-        }
-      }
-    );
+    const consolidatedNotes = await Note.find({
+      clientId: req.params.clientId,
+      staffId: req.user._id,
+      status: 'Consolidated',
+      isLocked: false
+    }).sort({ createdAt: 1 });
 
-    res.json({ success: true, message: `${result.modifiedCount} notes locked and sent`, data: result });
+    if (consolidatedNotes.length === 0) {
+      return res.status(400).json({ message: 'No consolidated notes to send' });
+    }
+
+    // Get assignment for shift info
+    const assignment = await Assignment.findOne({
+      staffId: req.user._id,
+      clientId: req.params.clientId,
+      isActive: true
+    });
+
+    // Build entries array from all consolidated notes
+    const entries = consolidatedNotes.map(n => ({
+      content: n.content,
+      noteType: n.noteType,
+      createdAt: n.createdAt,
+      attachments: n.attachments || []
+    }));
+
+    // Create one merged submitted document
+    await Note.create({
+      clientId: req.params.clientId,
+      staffId: req.user._id,
+      content: `Shift notes — ${consolidatedNotes.length} entr${consolidatedNotes.length !== 1 ? 'ies' : 'y'}`,
+      noteType: 'consolidated',
+      status: 'Submitted',
+      isLocked: true,
+      lockedAt: new Date(),
+      shift: assignment?.shift || null,
+      shiftDate: assignment?.startDate || null,
+      entries
+    });
+
+    // Remove the individual consolidated notes
+    await Note.deleteMany({
+      _id: { $in: consolidatedNotes.map(n => n._id) }
+    });
+
+    res.json({ success: true, message: `${consolidatedNotes.length} notes merged and sent as one document` });
   } catch (error) {
     console.error('Lock and send error:', error);
     res.status(500).json({ message: 'Failed to lock and send notes' });
