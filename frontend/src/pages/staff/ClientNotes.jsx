@@ -150,6 +150,12 @@ export default function ClientNotes() {
   };
 
   const handleLockAndSend = async () => {
+    if (!hasIncident) {
+      setError('You must add at least one Incident report before locking and sending notes to the supervisor.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     if (!window.confirm('Lock all consolidated notes and send to supervisor? This cannot be undone.')) return;
 
     setLockingSending(true);
@@ -666,11 +672,19 @@ export default function ClientNotes() {
               disabled={lockingSending}
               whileHover={!lockingSending ? { scale: 1.02 } : {}}
               whileTap={!lockingSending ? { scale: 0.98 } : {}}
+              title={!hasIncident ? 'You must add an Incident report before sending' : ''}
+              style={!hasIncident ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
             >
               <Lock size={18} />
               <Send size={16} />
               {lockingSending ? 'Sending...' : 'Confirm, Lock & Send to Supervisor'}
             </motion.button>
+            {!hasIncident && (
+              <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <AlertTriangle size={12} />
+                Incident report required before sending
+              </p>
+            )}
           </div>
 
           {/* Continuous document view */}
