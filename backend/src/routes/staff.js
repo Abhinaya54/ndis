@@ -71,21 +71,32 @@ function computeShiftStatus(assignment) {
   }
 
   const now = new Date();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const assignmentDate = new Date(assignment.startDate);
   assignmentDate.setHours(0, 0, 0, 0);
+
+  // For recurring assignments, evaluate today's shift window instead of the original start date
+  const shiftDate = assignmentDate <= today ? today : assignmentDate;
 
   const [startH, startM] = shiftDef.startTime.split(':').map(Number);
   const [endH, endM] = shiftDef.endTime.split(':').map(Number);
 
-  const shiftStart = new Date(assignmentDate);
+  const shiftStart = new Date(shiftDate);
   shiftStart.setHours(startH, startM, 0, 0);
 
-  const shiftEnd = new Date(assignmentDate);
+  const shiftEnd = new Date(shiftDate);
   shiftEnd.setHours(endH, endM, 0, 0);
   if (endH < startH) shiftEnd.setDate(shiftEnd.getDate() + 1);
 
   if (now < shiftStart) {
-    return { computedStatus: 'Pending', statusBadge: 'Upcoming', shiftPhase: 'before' };
+    const diffMs = shiftStart - now;
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffMins = Math.floor((diffMs % 3600000) / 60000);
+    const badge = diffHours > 0 ? `Starts in ${diffHours}h ${diffMins}m` : `Starts in ${diffMins}m`;
+    return { computedStatus: 'Pending', statusBadge: badge, shiftPhase: 'before' };
   }
   if (now > shiftEnd) {
     return { computedStatus: 'Previous', statusBadge: 'Completed', shiftPhase: 'after' };

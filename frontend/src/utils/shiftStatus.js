@@ -60,60 +60,58 @@ export function getAssignmentDateStatus(startDate, shiftName) {
   const [startHour, startMin] = shift.startTime.split(':').map(Number);
   const [endHour, endMin] = shift.endTime.split(':').map(Number);
 
-  const shiftStart = new Date(assignmentDate);
-  shiftStart.setHours(startHour, startMin, 0, 0);
+  // For recurring assignments, always evaluate against today's shift window
+  // Use todayStr (Sydney date) as the base date when assignment started in the past
+  const shiftDateStr = assignmentDateStr <= todayStr ? todayStr : assignmentDateStr;
 
-  const shiftEnd = new Date(assignmentDate);
-  shiftEnd.setHours(endHour, endMin, 0, 0);
+  // Get current time in Sydney timezone as minutes since midnight
+  const nowSydney = new Date().toLocaleTimeString('en-AU', {
+    timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  const [nowH, nowM] = nowSydney.split(':').map(Number);
+  const nowMinutes = nowH * 60 + nowM;
+  const startMinutes = startHour * 60 + startMin;
+  const endMinutes = endHour * 60 + endMin;
+  const isOvernight = endMinutes < startMinutes;
 
-  // Handle overnight shifts
-  if (endHour < startHour) {
-    shiftEnd.setDate(shiftEnd.getDate() + 1);
-  }
+  const isActive = isOvernight
+    ? (nowMinutes >= startMinutes || nowMinutes < endMinutes)
+    : (nowMinutes >= startMinutes && nowMinutes < endMinutes);
 
-  if (now < shiftStart) {
-    const diffMs = shiftStart - now;
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffMins = Math.floor((diffMs % 3600000) / 60000);
+  const isPending = isOvernight
+    ? (!isActive && nowMinutes < startMinutes)
+    : (nowMinutes < startMinutes);
 
-    let badge;
-    if (diffHours > 24) {
-      const days = Math.ceil(diffHours / 24);
-      badge = `Starts in ${days} day${days > 1 ? 's' : ''}`;
-    } else if (diffHours > 0) {
-      badge = `Starts in ${diffHours}h ${diffMins}m`;
-    } else {
-      badge = `Starts in ${diffMins}m`;
-    }
-
+  if (shiftDateStr > todayStr) {
+    const days = Math.ceil((new Date(shiftDateStr) - new Date(todayStr)) / 86400000);
+    const badge = days === 1 ? 'Tomorrow' : `Starts in ${days} days`;
     return { status: 'Pending', badge, shiftPhase: 'before', color: STATUS_COLORS.Pending };
   }
 
-  if (now > shiftEnd) {
-    const diffMs = now - shiftEnd;
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffMins = Math.floor((diffMs % 3600000) / 60000);
-
-    let badge;
-    if (diffHours > 24) {
-      const days = Math.floor(diffHours / 24);
-      badge = `Ended ${days} day${days > 1 ? 's' : ''} ago`;
-    } else if (diffHours > 0) {
-      badge = `Ended ${diffHours}h ${diffMins}m ago`;
-    } else {
-      badge = `Ended ${diffMins}m ago`;
-    }
-
-    return { status: 'Previous', badge, shiftPhase: 'after', color: STATUS_COLORS.Previous };
+  if (isPending) {
+    const diffMins = startMinutes - nowMinutes;
+    const diffHours = Math.floor(diffMins / 60);
+    const remMins = diffMins % 60;
+    const badge = diffHours > 0 ? `Starts in ${diffHours}h ${remMins}m` : `Starts in ${diffMins}m`;
+    return { status: 'Pending', badge, shiftPhase: 'before', color: STATUS_COLORS.Pending };
   }
 
-  // During shift
-  const remaining = shiftEnd - now;
-  const remHours = Math.floor(remaining / 3600000);
-  const remMins = Math.floor((remaining % 3600000) / 60000);
-  const badge = remHours > 0 ? `${remHours}h ${remMins}m remaining` : `${remMins}m remaining`;
+  if (isActive) {
+    const remaining = isOvernight && nowMinutes >= startMinutes
+      ? (1440 - nowMinutes + endMinutes)
+      : (endMinutes - nowMinutes);
+    const remHours = Math.floor(remaining / 60);
+    const remMins = remaining % 60;
+    const badge = remHours > 0 ? `${remHours}h ${remMins}m remaining` : `${remMins}m remaining`;
+    return { status: 'Current', badge, shiftPhase: 'during', color: STATUS_COLORS.Current };
+  }
 
-  return { status: 'Current', badge, shiftPhase: 'during', color: STATUS_COLORS.Current };
+  // Shift ended today
+  const diffMins = nowMinutes - (isOvernight && nowMinutes < endMinutes ? endMinutes + 1440 : endMinutes);
+  const diffHoursFinal = Math.floor(Math.abs(diffMins) / 60);
+  const remMinsFinal = Math.abs(diffMins) % 60;
+  const badge = diffHoursFinal > 0 ? `Ended ${diffHoursFinal}h ${remMinsFinal}m ago` : `Ended ${Math.abs(diffMins)}m ago`;
+  return { status: 'Previous', badge, shiftPhase: 'after', color: STATUS_COLORS.Previous };
 }
 
 /**
