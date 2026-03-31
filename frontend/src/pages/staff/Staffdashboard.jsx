@@ -59,14 +59,14 @@ export default function Staffdashboard() {
         const startDate = new Date(assignment.startDate);
         startDate.setHours(0, 0, 0, 0);
 
-        // Check if assignment includes today
-        let endDate = assignment.endDate ? new Date(assignment.endDate) : new Date(startDate);
-        if (!assignment.endDate) {
-          endDate.setMonth(endDate.getMonth() + 1);
-        }
-        endDate.setHours(23, 59, 59, 999);
+        if (startDate > endOfToday) return false; // starts in future
 
-        return startDate <= endOfToday && endDate >= today;
+        // No endDate = ongoing recurring assignment, already started
+        if (!assignment.endDate) return true;
+
+        const endDate = new Date(assignment.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        return endDate >= today;
       });
 
       // Create schedule items from today's assignments using shared utility
