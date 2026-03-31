@@ -6,6 +6,7 @@ const Note = require('../models/Note');
 const Assignment = require('../models/Assignment');
 const Trip = require('../models/Trip');
 const ShiftHistory = require('../models/ShiftHistory');
+const Appointment = require('../models/Appointment');
 
 const router = express.Router();
 
@@ -353,6 +354,50 @@ router.put('/trips/:tripId/reject', auth, requireRole('supervisor'), async (req,
     res.json({ success: true, data: trip });
   } catch (error) {
     res.status(500).json({ message: 'Failed to reject trip' });
+  }
+});
+
+// GET /api/supervisor/appointments
+router.get('/appointments', auth, requireRole('supervisor'), async (req, res) => {
+  try {
+    const filter = {};
+    if (req.query.clientId) filter.clientId = req.query.clientId;
+    const appointments = await Appointment.find(filter)
+      .populate('clientId', 'name')
+      .populate('staffId', 'name')
+      .sort({ date: -1 });
+    res.json({ success: true, data: appointments });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to load appointments' });
+  }
+});
+
+// POST /api/supervisor/appointments
+router.post('/appointments', auth, requireRole('supervisor'), async (req, res) => {
+  try {
+    const appointment = await Appointment.create({ ...req.body, createdBy: req.user._id });
+    const populated = await Appointment.findById(appointment._id)
+      .populate('clientId', 'name')
+      .populate('staffId', 'name');
+    res.status(201).json({ success: true, data: populated });
+  } catch (error) {
+    console.error('Create appointment error:', error);
+    res.status(500).json({ message: 'Failed to create appointment' });
+  }
+});
+
+// PUT /api/supervisor/appointments/:id/cancel
+router.put('/appointments/:id/cancel', auth, requireRole('supervisor'), async (req, res) => {
+  try {
+    const appointment = await Appointment.findByIdAndUpdate(
+      req.params.id,
+      { status: 'Cancelled', notes: req.body.cancellationReason },
+      { new: true }
+    );
+    if (!appointment) return res.status(404).json({ message: 'Appointment not found' });
+    res.json({ success: true, data: appointment });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to cancel appointment' });
   }
 });
 

@@ -84,7 +84,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
 
   const handleDownloadSummary = async () => {
     try {
-      const baseURL = 'http://localhost:5000';
+      const baseURL = api.defaults.baseURL || 'http://localhost:5000';
       const response = await fetch(`${baseURL}/api/clients/${clientId}/summary-report`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
