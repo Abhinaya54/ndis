@@ -102,6 +102,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Download failed:', err);
+      alert('Failed to download report. Please try again.');
     }
   };
 
@@ -311,24 +312,14 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
                 <span style={{ fontSize: '14px', color: '#666' }}>{client.address}</span>
               </div>
             )}
-            {client.emergencyContact?.name && (
+            {client.emergencyContact && (
               <div>
                 <p style={{ fontSize: '12px', fontWeight: '600', color: '#999', marginTop: '16px', marginBottom: '8px' }}>
                   Emergency Contact
                 </p>
-                <div style={{ fontSize: '14px', color: '#333' }}>
-                  <div>{client.emergencyContact.name}</div>
-                  {client.emergencyContact.phone && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                      <Phone size={14} color="#7e3285" />
-                      {client.emergencyContact.phone}
-                    </div>
-                  )}
-                  {client.emergencyContact.relationship && (
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                      ({client.emergencyContact.relationship})
-                    </div>
-                  )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#333' }}>
+                  <Phone size={14} color="#7e3285" />
+                  {client.emergencyContact}
                 </div>
               </div>
             )}
@@ -658,7 +649,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
             </h4>
             <div style={{ display: 'grid', gap: '12px' }}>
               {appointments
-                .filter(apt => apt.status === 'Scheduled' && new Date(apt.appointmentDate) >= new Date())
+                .filter(apt => apt.status === 'Scheduled' && new Date(apt.date) >= new Date())
                 .map(appointment => (
                   <div
                     key={appointment._id}
@@ -679,20 +670,20 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
                       <div style={{ display: 'flex', gap: '16px', fontSize: '14px', color: '#666' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Calendar size={14} />
-                          {new Date(appointment.appointmentDate).toLocaleDateString()}
+                          {new Date(appointment.date).toLocaleDateString()}
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Clock size={14} />
-                          {appointment.startTime}
+                          {appointment.time}
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <User size={14} />
                           Staff: {appointment.staffId?.name}
                         </span>
                       </div>
-                      {appointment.description && (
+                      {appointment.notes && (
                         <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#999' }}>
-                          {appointment.description}
+                          {appointment.notes}
                         </p>
                       )}
                     </div>
@@ -717,7 +708,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
                     </button>
                   </div>
                 ))}
-              {appointments.filter(apt => apt.status === 'Scheduled' && new Date(apt.appointmentDate) >= new Date()).length === 0 && (
+              {appointments.filter(apt => apt.status === 'Scheduled' && new Date(apt.date) >= new Date()).length === 0 && (
                 <div style={{
                   background: '#f9fafb',
                   padding: '40px',
@@ -739,7 +730,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
             </h4>
             <div style={{ display: 'grid', gap: '12px' }}>
               {appointments
-                .filter(apt => apt.status !== 'Scheduled' || new Date(apt.appointmentDate) < new Date())
+                .filter(apt => apt.status !== 'Scheduled' || new Date(apt.date) < new Date())
                 .map(appointment => (
                   <div
                     key={appointment._id}
@@ -759,11 +750,11 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
                         <div style={{ display: 'flex', gap: '16px', fontSize: '14px', color: '#666' }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Calendar size={14} />
-                            {new Date(appointment.appointmentDate).toLocaleDateString()}
+                            {new Date(appointment.date).toLocaleDateString()}
                           </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <Clock size={14} />
-                            {appointment.startTime}
+                            {appointment.time}
                           </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <User size={14} />
