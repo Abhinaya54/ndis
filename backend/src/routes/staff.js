@@ -269,6 +269,25 @@ router.post('/clients/:clientId/notes/lock-and-send', auth, requireRole('staff')
   }
 });
 
+// POST /api/staff/clients/:clientId/notes/confirm-review
+router.post('/clients/:clientId/notes/confirm-review', auth, requireRole('staff'), async (req, res) => {
+  try {
+    const result = await Note.updateMany(
+      {
+        clientId: req.params.clientId,
+        staffId: req.user._id,
+        status: { $in: ['Draft', 'Review'] },
+        isLocked: false
+      },
+      { $set: { status: 'Consolidated' } }
+    );
+    res.json({ success: true, message: `${result.modifiedCount} notes confirmed`, data: result });
+  } catch (error) {
+    console.error('Confirm review error:', error);
+    res.status(500).json({ message: 'Failed to confirm review notes' });
+  }
+});
+
 // POST /api/staff/clients/:clientId/notes/:noteId/unlock
 router.post('/clients/:clientId/notes/:noteId/unlock', auth, async (req, res) => {
   try {
