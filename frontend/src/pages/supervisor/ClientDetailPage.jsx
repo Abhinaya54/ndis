@@ -95,7 +95,7 @@ const ClientDetailPage = ({ clientId: clientIdProp }) => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${client.name}-Summary-Report.pdf`;
+      link.download = `${client.name}-Summary-Report.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
