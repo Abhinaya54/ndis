@@ -25,6 +25,7 @@ app.use('/staff', require('./src/routes/staffTrips'));
 app.use('/api/supervisor', require('./src/routes/supervisor'));
 app.use('/api/shift-history', require('./src/routes/shiftHistory'));
 app.use('/api/notes', require('./src/routes/notes'));
+app.use('/api/clients', require('./src/routes/clients'));
 
 // Health check
 app.get('/api/health', (req, res) => {
