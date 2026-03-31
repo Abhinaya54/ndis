@@ -7,6 +7,7 @@ const Client = require('../models/Client');
 const Note = require('../models/Note');
 const Assignment = require('../models/Assignment');
 const Appointment = require('../models/Appointment');
+const ShiftHistory = require('../models/ShiftHistory');
 
 const router = express.Router();
 
@@ -300,6 +301,16 @@ router.post('/clients/:clientId/notes/lock-and-send', auth, requireRole('staff')
     // Remove the individual consolidated notes
     await Note.deleteMany({
       _id: { $in: consolidatedNotes.map(n => n._id) }
+    });
+
+    // Record this as a completed shift in history
+    await ShiftHistory.create({
+      staffId: req.user._id,
+      clientId: req.params.clientId,
+      shift: assignment?.shift || 'Unknown',
+      startDate: assignment?.startDate || new Date(),
+      completedAt: new Date(),
+      isLocked: true
     });
 
     res.json({ success: true, message: `${consolidatedNotes.length} notes merged and sent as one document` });

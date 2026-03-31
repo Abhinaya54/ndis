@@ -56,12 +56,16 @@ export default function Staffdashboard() {
 
       const todayAssignments = assignments.filter(assignment => {
         if (!assignment.isActive) return false;
+
+        // Backend computes shift status in Australian timezone — trust it
+        if (assignment.computedStatus === 'Current') return true;
+
         const startDate = new Date(assignment.startDate);
         startDate.setHours(0, 0, 0, 0);
 
         if (startDate > endOfToday) return false; // starts in future
 
-        // No endDate = ongoing recurring assignment, already started
+        // No endDate = ongoing assignment, already started
         if (!assignment.endDate) return true;
 
         const endDate = new Date(assignment.endDate);
