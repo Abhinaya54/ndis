@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
+import { todayAU } from '../../utils/dateUtils';
 
 /**
  * AssignmentModal - Modal for managing assignments
@@ -420,7 +421,7 @@ const AssignmentModal = ({
               type="date"
               value={formData.startDate}
               onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-              min={mode !== 'edit' ? new Date().toISOString().split('T')[0] : undefined}
+              min={mode !== 'edit' ? todayAU() : undefined}
               style={{
                 width: '100%',
                 padding: '10px 12px',

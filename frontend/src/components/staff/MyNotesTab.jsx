@@ -108,11 +108,12 @@ const MyNotesTab = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-AU');
+    return new Date(dateString).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
   };
 
   const formatDateTime = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-AU', {
+      timeZone: 'Australia/Sydney',
       year: 'numeric',
       month: 'short',
       day: 'numeric',

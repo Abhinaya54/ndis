@@ -74,7 +74,6 @@ const getBreadcrumbs = (pathname) => {
     if (page === 'verify-notes') return [dash, { label: 'Verify Notes' }];
     if (page === 'assign-staff') return [dash, { label: 'Assign Staff' }];
     if (page === 'unlock-notes') return [dash, { label: 'Unlock Notes' }];
-    if (page === 'travel') return [dash, { label: 'Travel Logs' }];
     if (page === 'shift-history') return [dash, { label: 'Shift History' }];
   }
 

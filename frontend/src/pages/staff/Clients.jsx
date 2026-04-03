@@ -178,7 +178,7 @@ export default function Clients() {
                     <div className={styles.detailItem}>
                       <span className={styles.detailLabel}>DOB:</span>
                       <span className={styles.detailValue}>
-                        {new Date(client.dateOfBirth).toLocaleDateString('en-US', {
+                        {new Date(client.dateOfBirth).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', 
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric'

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import api from '../../api/api';
 import { AuthContext } from '../../context/AuthContext';
 import { SHIFTS, NOTE_CATEGORIES } from '../../constants/shifts';
+import { todayAU } from '../../utils/dateUtils';
 import Modal from '../common/Modal';
 
 const WriteNoteTab = ({ onStatsUpdate }) => {
@@ -18,7 +19,7 @@ const WriteNoteTab = ({ onStatsUpdate }) => {
     category: '',
     content: '',
     shift: SHIFTS[0].time,
-    shiftDate: new Date().toISOString().split('T')[0]
+    shiftDate: todayAU()
   });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -106,7 +107,7 @@ const WriteNoteTab = ({ onStatsUpdate }) => {
           category: '',
           content: '',
           shift: SHIFTS[0].time,
-          shiftDate: new Date().toISOString().split('T')[0]
+          shiftDate: todayAU()
         });
         setSelectedCategory('');
         setSelectedClient(null);
@@ -124,7 +125,7 @@ const WriteNoteTab = ({ onStatsUpdate }) => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-AU');
+    return new Date(dateString).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' });
   };
 
   if (loading) {

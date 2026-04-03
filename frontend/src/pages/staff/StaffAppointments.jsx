@@ -150,7 +150,7 @@ const StaffAppointments = () => {
                       }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Calendar size={14} />
-                          {new Date(appointment.appointmentDate).toLocaleDateString()}
+                          {new Date(appointment.appointmentDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' })}
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Clock size={14} />

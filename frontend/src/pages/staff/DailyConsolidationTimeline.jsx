@@ -178,7 +178,7 @@ export default function DailyConsolidationTimeline() {
           animate="visible"
         >
           {notes.map((note, index) => {
-            const noteTime = new Date(note.createdAt).toLocaleTimeString("en-US", {
+            const noteTime = new Date(note.createdAt).toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney', 
               hour: "2-digit",
               minute: "2-digit",
             });
@@ -281,7 +281,7 @@ export default function DailyConsolidationTimeline() {
                           {getNoteTypeIcon(note.noteType)}
                           {getNoteTypeLabel(note.noteType)}
                         </span>
-                        <span>Created: {new Date(note.createdAt).toLocaleString()}</span>
+                        <span>Created: {new Date(note.createdAt).toLocaleString("en-AU", { timeZone: "Australia/Sydney" })}</span>
                         {/* Only show Edit button for text/voice notes, not file notes */}
                         {note.noteType !== 'file' && (
                           <button

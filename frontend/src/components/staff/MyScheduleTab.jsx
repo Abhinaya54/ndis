@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/api';
 import { SHIFT_COLORS } from '../../constants/shifts';
+import { todayAU } from '../../utils/dateUtils';
 
 const MyScheduleTab = () => {
   const [schedule, setSchedule] = useState({});
@@ -24,7 +25,7 @@ const MyScheduleTab = () => {
         setSchedule(res.data.data);
         
         // Extract today's shifts
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayAU();
         setTodayShifts(res.data.data[today]?.shifts || []);
       }
     } catch (err) {
@@ -54,22 +55,22 @@ const MyScheduleTab = () => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+    return new Date(dateString).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', day: 'numeric', month: 'short' });
   };
 
   const formatWeekRange = (date) => {
     const start = getStartOfWeek(new Date(date));
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
-    return `${start.toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    return `${start.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', month: 'short', day: 'numeric', year: 'numeric' })}`;
   };
 
   const getDayName = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-AU', { weekday: 'short' });
+    return new Date(dateString).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', weekday: 'short' });
   };
 
   const isToday = (dateString) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayAU();
     return dateString === today;
   };
 

@@ -164,7 +164,7 @@ const ClientAppointmentsView = () => {
                             <div style={{ display: 'flex', gap: '16px', fontSize: '14px', color: '#666', flexWrap: 'wrap' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <Calendar size={14} />
-                                {new Date(appointment.appointmentDate).toLocaleDateString('en-US', {
+                                {new Date(appointment.appointmentDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', 
                                   weekday: 'short',
                                   day: 'numeric',
                                   month: 'short',
@@ -336,7 +336,7 @@ const ClientAppointmentsView = () => {
                             <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: '#666' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <Calendar size={12} />
-                                {new Date(appointment.appointmentDate).toLocaleDateString()}
+                                {new Date(appointment.appointmentDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' })}
                               </span>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <Clock size={12} />

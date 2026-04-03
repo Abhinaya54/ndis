@@ -12,7 +12,6 @@ import {
   CheckSquare,
   Unlock,
   UserPlus,
-  Car,
   ClipboardList,
   Clock,
   ChevronRight,

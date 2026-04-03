@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/api';
+import { currentMonthAU } from '../../utils/dateUtils';
 
 const TravelLogTab = () => {
   const [trips, setTrips] = useState([]);
   const [filters, setFilters] = useState({
     status: 'pending',
-    month: new Date().toISOString().slice(0, 7)
+    month: currentMonthAU()
   });
 
   const fetchTrips = useCallback(async () => {
@@ -86,7 +87,7 @@ const TravelLogTab = () => {
                     {trip.clientName || 'Unknown Client'} • {trip.staffName || 'Unknown Staff'}
                   </p>
                   <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#666' }}>
-                    {new Date(trip.tripDate).toLocaleDateString()} • {trip.startTime} - {trip.endTime}
+                    {new Date(trip.tripDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' })} • {trip.startTime} - {trip.endTime}
                   </p>
                 </div>
                 <span style={{

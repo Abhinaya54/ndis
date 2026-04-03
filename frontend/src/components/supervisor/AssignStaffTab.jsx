@@ -26,7 +26,6 @@ const AssignStaffTab = () => {
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchClients = useCallback(async (staffId = null) => {
@@ -395,7 +394,7 @@ const AssignStaffTab = () => {
                           <strong>Shift:</strong> {assignment.shift}
                         </p>
                         <p style={{ margin: '0' }}>
-                          <strong>Date:</strong> {displayInfo?.fullDate || new Date(assignment.startDate).toLocaleDateString('en-AU')}
+                          <strong>Date:</strong> {displayInfo?.fullDate || new Date(assignment.startDate).toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney' })}
                         </p>
                         <p style={{ margin: '0' }}>
                           <strong>Status:</strong> {dateStatus.status}

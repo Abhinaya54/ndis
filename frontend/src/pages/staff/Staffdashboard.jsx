@@ -48,11 +48,29 @@ export default function Staffdashboard() {
       const shiftsData = shiftsRes.data?.data || {};
       const assignments = shiftsData.assignments || [];
 
-      // Filter for today's schedule - use backend computedStatus instead of date filtering
+      // Filter for today's schedule
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endOfToday = new Date(today);
+      endOfToday.setHours(23, 59, 59, 999);
+
       const todayAssignments = assignments.filter(assignment => {
-        // Trust backend computedStatus - it already accounts for timezone
-        const status = assignment.computedStatus || '';
-        return status === 'Current' || status === 'Pending';
+        if (!assignment.isActive) return false;
+
+        // Backend computes shift status in Australian timezone — trust it
+        if (assignment.computedStatus === 'Current') return true;
+
+        const startDate = new Date(assignment.startDate);
+        startDate.setHours(0, 0, 0, 0);
+
+        if (startDate > endOfToday) return false; // starts in future
+
+        // No endDate = ongoing assignment, already started
+        if (!assignment.endDate) return true;
+
+        const endDate = new Date(assignment.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        return endDate >= today;
       });
 
       // Create schedule items from today's assignments using shared utility
@@ -151,7 +169,7 @@ export default function Staffdashboard() {
 
     let dateDisplay = 'Today';
     if (shiftDate.setHours(0, 0, 0, 0) !== today.getTime()) {
-      dateDisplay = shiftDate.toLocaleDateString('en-US', {
+      dateDisplay = shiftDate.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney', 
         weekday: 'short',
         month: 'short',
         day: 'numeric'
@@ -185,7 +203,7 @@ export default function Staffdashboard() {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays}d ago`;
-    return noteDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return noteDate.toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney',  month: 'short', day: 'numeric' });
   };
 
   const tabs = [
@@ -355,7 +373,7 @@ export default function Staffdashboard() {
                   Today's Schedule
                 </h3>
                 <span className={styles.dateLabel}>
-                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                  {new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Sydney',  weekday: 'long', month: 'short', day: 'numeric' })}
                 </span>
               </div>
 
