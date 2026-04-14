@@ -54,8 +54,9 @@ const Signup = () => {
     } catch (err) {
       const errorMessage = err.response?.data?.message || "Unable to connect to server. Please try again.";
       setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -110,6 +111,7 @@ const Signup = () => {
                 value={form.name}
                 onChange={handleChange}
                 required
+                disabled={loading}
                 autoComplete="name"
               />
               <User className={styles.inputIcon} size={20} />
@@ -128,6 +130,7 @@ const Signup = () => {
                 value={form.email}
                 onChange={handleChange}
                 required
+                disabled={loading}
                 autoComplete="email"
               />
               <Mail className={styles.inputIcon} size={20} />
@@ -146,6 +149,7 @@ const Signup = () => {
                 value={form.password}
                 onChange={handleChange}
                 required
+                disabled={loading}
                 autoComplete="new-password"
               />
               <Lock className={styles.inputIcon} size={20} />
@@ -164,6 +168,7 @@ const Signup = () => {
                 value={form.rePassword}
                 onChange={handleChange}
                 required
+                disabled={loading}
                 autoComplete="new-password"
               />
               <Lock className={styles.inputIcon} size={20} />
@@ -180,6 +185,7 @@ const Signup = () => {
                 value={form.role}
                 onChange={handleChange}
                 required
+                disabled={loading}
               >
                 <option value="">Select your role</option>
                 <option value="staff">Staff</option>
@@ -193,10 +199,16 @@ const Signup = () => {
             className={styles.submitBtn}
             type="submit"
             disabled={loading}
+            aria-busy={loading}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            {loading ? "Creating Account..." : "Create Account"}
+            {loading ? (
+              <span className={styles.loadingContent}>
+                <span className={styles.spinner} aria-hidden="true" />
+                Creating Account...
+              </span>
+            ) : "Create Account"}
           </motion.button>
         </motion.form>
 

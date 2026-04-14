@@ -5,6 +5,12 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
+const buildSafeAuthMeta = (body = {}) => ({
+  email: body.email,
+  role: body.role,
+  password: body.password ? '***masked***' : undefined
+});
+
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
   try {
@@ -26,7 +32,12 @@ router.post('/signup', async (req, res) => {
       message: 'Account created successfully'
     });
   } catch (error) {
-    console.error('Signup error:', error);
+    console.error('Signup error:', {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+      request: buildSafeAuthMeta(req.body)
+    });
     res.status(500).json({ message: 'Server error during signup' });
   }
 });
@@ -66,7 +77,12 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login error:', {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+      request: buildSafeAuthMeta(req.body)
+    });
     res.status(500).json({ message: 'Server error during login' });
   }
 });
@@ -92,7 +108,13 @@ router.post('/verify-password', auth, async (req, res) => {
 
     res.json({ success: true, message: 'Password verified' });
   } catch (error) {
-    console.error('Verify password error:', error);
+    console.error('Verify password error:', {
+      message: error.message,
+      name: error.name,
+      code: error.code,
+      userId: req.user?._id,
+      request: buildSafeAuthMeta(req.body)
+    });
     res.status(500).json({ success: false, message: 'Verification failed' });
   }
 });

@@ -223,6 +223,22 @@
   transform: none;
 }
 
+.loadingContent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
 /* Footer */
 .footer {
   margin-top: var(--spacing-lg);
@@ -274,5 +290,11 @@
 
   .title {
     font-size: var(--font-xl);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
